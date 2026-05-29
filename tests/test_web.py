@@ -170,3 +170,13 @@ def test_resume_unknown_returns_400(tmp_path):
                      groups_provider=lambda e: [], job_store=store)
     client = TestClient(app)
     assert client.post("/api/jobs/nope/resume").status_code == 400
+
+
+def test_index_has_redesign_elements():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert 'id="themeToggle"' in html
+    assert 'id="estimate"' in html
+    assert 'id="incremental"' in html
+    assert "--accent" in html
+    assert 'id="groups"' in html and 'id="start"' in html
