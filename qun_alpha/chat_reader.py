@@ -52,8 +52,10 @@ def filter_messages(messages: list[Message], group_ids: list[str],
     return out
 
 
-def _chunk_id(group_id: str, t0: int, t1: int, prompt_version: str) -> str:
-    raw = f"{group_id}|{t0}|{t1}|{prompt_version}"
+def _chunk_id(group_id: str, t0: int, t1: int, first_msg_id: str,
+              prompt_version: str) -> str:
+    # 含窗口首条 msg_id：同群同一秒的多条消息切成单条块时也不会撞缓存
+    raw = f"{group_id}|{t0}|{t1}|{first_msg_id}|{prompt_version}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -73,7 +75,7 @@ def chunk_messages(messages: list[Message], max_messages: int,
             t0 = window[0].timestamp
             t1 = window[-1].timestamp
             chunks.append(MessageChunk(
-                chunk_id=_chunk_id(gid, t0, t1, prompt_version),
+                chunk_id=_chunk_id(gid, t0, t1, window[0].msg_id, prompt_version),
                 group_id=gid,
                 group_name=gname,
                 time_start=t0,

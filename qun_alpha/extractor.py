@@ -9,8 +9,6 @@ from qun_alpha.models import MessageChunk, RawEntity
 Runner = Callable[[str], str]
 _ADAPTER = TypeAdapter(list[RawEntity])
 
-PROMPT_VERSION = "v1"
-
 _INSTRUCTION = """你是投资情报分析员。下面是一个微信群某时间段的聊天记录。
 请抽取其中提到的【公司/项目】、【人物（创始人/投资人）】、【分享的链接】。
 只输出一个 JSON 数组，每个元素形如：

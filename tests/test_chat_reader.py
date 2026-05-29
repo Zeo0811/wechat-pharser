@@ -46,3 +46,16 @@ def test_chunk_ids_stable():
     a = chunk_messages(g1, max_messages=2, prompt_version="v1")
     b = chunk_messages(g1, max_messages=2, prompt_version="v1")
     assert [c.chunk_id for c in a] == [c.chunk_id for c in b]   # 确定性
+
+
+def test_chunk_ids_distinct_on_same_timestamp():
+    # 同群、同一秒的两条消息，单条切块时 chunk_id 必须不同（否则缓存互撞）
+    same_ts = [
+        Message(msg_id="x1", group_id="g1", group_name="群", sender="a",
+                timestamp=1716700000, text="第一条有内容的消息"),
+        Message(msg_id="x2", group_id="g1", group_name="群", sender="b",
+                timestamp=1716700000, text="第二条不同内容的消息"),
+    ]
+    chunks = chunk_messages(same_ts, max_messages=1, prompt_version="v1")
+    assert len(chunks) == 2
+    assert chunks[0].chunk_id != chunks[1].chunk_id
