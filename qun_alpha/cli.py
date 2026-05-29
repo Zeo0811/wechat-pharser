@@ -41,6 +41,8 @@ def analyze(
 ):
     """分析指定群的指定时间段，输出实体并（可选）写 Notion 三张表。"""
     cfg = load_config(config_path)
+    backend = model or cfg.model_backend
+    runners.ensure_available(backend)   # CLI 不在 PATH → 提前人话报错
     client = None if dry_run else _notion_client(cfg)
     result = run_pipeline(
         export_path=export_path,
@@ -48,7 +50,7 @@ def analyze(
         start=start, end=end,
         max_messages=cfg.max_messages_per_chunk,
         prompt_version=cfg.prompt_version,
-        runner=runners.get_runner(model or cfg.model_backend),
+        runner=runners.get_runner(backend),
         cache_dir=cfg.cache_dir,
         notion_client=client,
         companies_db_id=cfg.notion_companies_db_id,

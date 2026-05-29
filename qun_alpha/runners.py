@@ -31,3 +31,11 @@ def get_runner(backend: str) -> Callable[[str], str]:
 def detect_available() -> list[str]:
     """返回当前 PATH 上可用的后端 CLI。"""
     return [b for b in BACKENDS if shutil.which(b)]
+
+
+def ensure_available(backend: str) -> None:
+    """选定后端的 CLI 不在 PATH 时，提前抛人话错误（而非深处的 traceback）。"""
+    if backend not in detect_available():
+        raise RuntimeError(
+            f"未检测到 {backend} CLI，请先安装并登录，"
+            f"或用 `qun-alpha model --set claude` 切换后端")

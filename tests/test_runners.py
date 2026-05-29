@@ -33,3 +33,11 @@ def test_get_runner_callable_with_prompt_only():
     # get_runner 返回的函数能只用 (prompt) 调用；用 run= 注入验证不真跑 CLI
     r = runners.get_runner("claude")
     assert r("hi", run=lambda argv: "X") == "X"
+
+
+def test_ensure_available_raises_when_missing(monkeypatch):
+    import pytest
+    monkeypatch.setattr(runners, "detect_available", lambda: ["claude"])
+    runners.ensure_available("claude")           # 在 → 不抛
+    with pytest.raises(RuntimeError):
+        runners.ensure_available("codex")        # 不在 → 抛人话错误

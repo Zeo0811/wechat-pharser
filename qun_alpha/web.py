@@ -55,6 +55,9 @@ def _default_target_factory(params: dict):
         from notion_client import Client
         client = Client(auth=cfg.notion_token)
     cursor = CursorStore()
+    backend = params.get("model") or cfg.model_backend
+    # 抽取（即使 dry_run）都要调模型 CLI，故先确认它在；缺失 → start_job 返回 400
+    runners.ensure_available(backend)
 
     def target(emit):
         return orchestrator.run_job(
@@ -64,7 +67,7 @@ def _default_target_factory(params: dict):
             end=params.get("end", 2_000_000_000),
             max_messages=cfg.max_messages_per_chunk,
             prompt_version=cfg.prompt_version,
-            runner=runners.get_runner(params.get("model") or cfg.model_backend),
+            runner=runners.get_runner(backend),
             cache_dir=cfg.cache_dir,
             notion_client=client,
             companies_db_id=cfg.notion_companies_db_id,
