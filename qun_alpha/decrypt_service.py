@@ -78,6 +78,10 @@ def codesign_steps() -> list[dict]:
 def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[dict]:
     """② 提密钥→解库→导出→转格式。提密钥需管理员，其余不需。
     用自带的 find_keys_codec（codec_ctx 方式，支持微信 4.1，免 SIP）。"""
+    import sys
+    # 导出/转格式步会 cd 到 wechat-decrypt 仓库，故输出路径必须绝对，否则会写错位置
+    raw_out = os.path.abspath(raw_out)
+    export_path = os.path.abspath(export_path)
     return [
         {"desc": "编译密钥扫描器",
          "argv": ["bash", "-lc",
@@ -105,10 +109,11 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
          "argv": ["bash", "-lc",
                   f'cd {repo_dir} && "{repo_dir}/.venv/bin/python3" '
                   f"export_all_chats.py {raw_out}"]},
+        # 用 server 自己的 venv python 跑（bash 子进程 PATH 里没有 qun-alpha 命令）
         {"desc": "转换成本项目格式",
          "argv": ["bash", "-lc",
-                  f"qun-alpha import-export --src-dir {raw_out} "
-                  f"--out-path {export_path} --groups-only"]},
+                  f'"{sys.executable}" -m qun_alpha.cli import-export '
+                  f"--src-dir {raw_out} --out-path {export_path} --groups-only"]},
     ]
 
 
