@@ -1,0 +1,7 @@
+{
+  "chat": "张三",
+  "username": "wxid_zhangsan",
+  "messages": [
+    {"local_id": 1, "timestamp": 1716700050, "sender": "张三", "content": "你好"}
+  ]
+}

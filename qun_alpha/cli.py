@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional
 import typer
-from qun_alpha import extractor, notion_writer, orchestrator
+from qun_alpha import extractor, notion_writer, orchestrator, wechat_import
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
@@ -90,6 +90,18 @@ def serve(
         url = f"http://{host}:{port}"
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     uvicorn.run(application, host=host, port=port)
+
+
+@app.command("import-export")
+def import_export(
+    src_dir: str = typer.Option(..., help="wechat-decrypt 导出目录（每会话一个 JSON）"),
+    out_path: str = typer.Option("exported_chats/all.json", help="合并输出的单数组 JSON"),
+    groups_only: bool = typer.Option(False, help="只导入群聊（跳过单聊）"),
+) -> int:
+    """把 wechat-decrypt 的导出目录转换成本项目可读的单数组 JSON。"""
+    n = wechat_import.convert_export_dir(src_dir, out_path, groups_only=groups_only)
+    typer.echo(f"已转换 {n} 个会话 → {out_path}")
+    return n
 
 
 if __name__ == "__main__":
