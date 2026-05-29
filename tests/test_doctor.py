@@ -48,3 +48,15 @@ def test_python_too_old_blocks():
     checks = check_all(system="Darwin", which=_which({"cc", "git", "claude"}),
                        exists=lambda p: True, py_ge_310=False, home="/h")
     assert not all_ok(checks)
+
+
+def test_render_doctor_lines():
+    from qun_alpha.cli import render_doctor
+    checks = [Check("macOS", True, "Darwin"),
+              Check("Xcode 命令行工具", False, "cc=None", "运行：xcode-select --install")]
+    lines, ok = render_doctor(checks)
+    assert ok is False
+    body = "\n".join(lines)
+    assert "macOS" in body and "Xcode" in body
+    assert "xcode-select" in body
+    assert "✅" in body and "❌" in body

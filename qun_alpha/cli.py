@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 import json
 import typer
-from qun_alpha import extractor, notion_writer, orchestrator, wechat_import, decrypt_service, runners
+from qun_alpha import extractor, notion_writer, orchestrator, wechat_import, decrypt_service, runners, doctor as doctor_mod
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
@@ -154,6 +154,30 @@ def model(set: str = typer.Option(None, "--set", help="切换后端: claude / co
     info = model_status(config_path=config_path, set_backend=set)
     typer.echo(f"可用后端: {', '.join(info['available']) or '(未检测到 claude/codex)'}")
     typer.echo(f"当前后端: {info['current']}")
+
+
+def render_doctor(checks) -> tuple[list, bool]:
+    lines = []
+    for c in checks:
+        mark = "✅" if c.ok else "❌"
+        line = f"{mark} {c.name}: {c.detail}"
+        if not c.ok and c.fix:
+            line += f"  → {c.fix}"
+        lines.append(line)
+    return lines, doctor_mod.all_ok(checks)
+
+
+@app.command()
+def doctor():
+    """依赖体检：检查 macOS / Xcode CLT / Python / claude·codex / 安装目录。"""
+    checks = doctor_mod.check_all()
+    lines, ok = render_doctor(checks)
+    for ln in lines:
+        typer.echo(ln)
+    if not ok:
+        typer.echo("\n有阻塞项未满足，请按上面提示修复后重试。")
+        raise typer.Exit(1)
+    typer.echo("\n✅ 环境就绪。")
 
 
 if __name__ == "__main__":
