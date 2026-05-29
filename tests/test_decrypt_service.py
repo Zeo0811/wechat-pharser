@@ -27,3 +27,11 @@ def test_classify_error_known_patterns():
 def test_classify_error_unknown_passthrough():
     msg = classify_error("某种没见过的错误 xyz")
     assert "xyz" in msg
+
+
+def test_cli_decrypt_guide_returns_steps():
+    from qun_alpha.cli import decrypt_guide
+    steps = decrypt_guide(repo_dir="/repo/wd", output_dir="/out")
+    assert isinstance(steps, list)
+    assert len(steps) >= 6
+    assert all("command" in s and "desc" in s for s in steps)
