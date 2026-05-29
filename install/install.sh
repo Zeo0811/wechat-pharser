@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # qun-alpha 安装器（macOS）。幂等，可重复运行。
-# 用法：curl -fsSL <RAW_URL>/install/install.sh | bash
+# 用法：curl -fsSL https://raw.githubusercontent.com/Zeo0811/wechat-pharser/main/install/install.sh | bash
 #   或：bash install/install.sh
 set -euo pipefail
 
 QUN_ALPHA_HOME="${QUN_ALPHA_HOME:-$HOME/.qun-alpha}"
-QUN_REPO="${QUN_REPO:-https://github.com/your/qun-alpha}"
+QUN_REPO="${QUN_REPO:-https://github.com/Zeo0811/wechat-pharser}"
 WD_REPO="https://github.com/ylytdeng/wechat-decrypt"
 VENDOR="$QUN_ALPHA_HOME/vendor/wechat-decrypt"
 BIN_DIR="$HOME/.local/bin"
