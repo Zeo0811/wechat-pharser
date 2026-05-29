@@ -4,6 +4,7 @@ import subprocess
 
 # (stderr 子串, 人话提示) —— 命中第一个即返回。注意顺序：更具体的放前面。
 _ERROR_HINTS = [
+    ("没提取到密钥", "没提取到密钥：请确认微信已登录进账号（不是停在二维码/登录界面）后重试。"),
     ("no module named", "wechat-decrypt 解密依赖没装：进入仓库目录 "
                         "`python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt`"
                         "（见引导页第①步）。"),
@@ -79,6 +80,11 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
         {"desc": "提取数据库密钥（管理员）",
          "argv": ["osascript", "-e", admin_applescript(
              f"cd {repo_dir} && ./find_all_keys_macos")]},
+        {"desc": "校验密钥",
+         "argv": ["bash", "-lc",
+                  f'grep -qE "[0-9a-f]{{16}}" {repo_dir}/all_keys.json '
+                  f'|| {{ echo "没提取到密钥：请确认微信已登录进账号"'
+                  f'"（不是停在二维码/登录界面）后重试" >&2; exit 7; }}']},
         {"desc": "解密数据库",
          "argv": ["bash", "-lc",
                   f'cd {repo_dir} && "{repo_dir}/.venv/bin/python3" decrypt_db.py']},
