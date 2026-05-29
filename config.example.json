@@ -1,0 +1,10 @@
+{
+    "notion_token": "secret_xxx",
+    "notion_parent_page_id": "在此填入用于创建数据库的父页面 ID",
+    "notion_companies_db_id": "",
+    "notion_people_db_id": "",
+    "notion_links_db_id": "",
+    "max_messages_per_chunk": 100,
+    "prompt_version": "v1",
+    "cache_dir": ".qun_cache"
+}
