@@ -69,5 +69,28 @@ def init_notion(config_path: str = typer.Option("config.json")):
         typer.echo(f"  {key}: {db_id}")
 
 
+def build_app():
+    """构造 FastAPI app（供 serve 与测试用）。"""
+    from qun_alpha.web import create_app
+    return create_app()
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1"),
+    port: int = typer.Option(7800),
+    open_browser: bool = typer.Option(True, help="启动后自动开浏览器"),
+):
+    """启动本地 Web 操作台（localhost）。"""
+    import threading
+    import webbrowser
+    import uvicorn
+    application = build_app()
+    if open_browser:
+        url = f"http://{host}:{port}"
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    uvicorn.run(application, host=host, port=port)
+
+
 if __name__ == "__main__":
     app()

@@ -95,3 +95,10 @@ def test_index_served():
     assert "text/html" in r.headers["content-type"]
     assert 'id="groups"' in r.text
     assert "群聊投资机会" in r.text
+
+
+def test_build_app_returns_fastapi():
+    from qun_alpha.cli import build_app
+    from fastapi import FastAPI
+    app = build_app()
+    assert isinstance(app, FastAPI)
