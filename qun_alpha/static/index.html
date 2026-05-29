@@ -130,7 +130,7 @@ $("codesignBtn").onclick=async()=>{
 
 $("decryptBtn").onclick=async()=>{
   const b=await postJob("/api/decrypt-export");
-  if(b)streamJob(b.job_id,()=>{$("result").textContent="解密导出完成，正在加载群…";$("loadGroups").click();});
+  if(b)streamJob(b.job_id,()=>{if(b.export_path)$("export_path").value=b.export_path;$("result").textContent="解密导出完成，正在加载群…";$("loadGroups").click();});
 };
 
 $("loadGroups").onclick=async()=>{
