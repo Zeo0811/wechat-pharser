@@ -1,6 +1,9 @@
 from __future__ import annotations
+import logging
 from typing import Any, Callable
 from qun_alpha.models import Company, Person, Link
+
+logger = logging.getLogger(__name__)
 
 
 def _rt(text: str) -> dict:
@@ -35,13 +38,19 @@ def company_to_properties(c: Company) -> dict[str, Any]:
 
 def _find_page_id(client: Any, database_id: str, title_prop: str,
                   title_value: str):
-    """按标题等值查存量页，命中返回 page_id，否则 None。"""
+    """按标题等值查存量页，命中返回 page_id，否则 None。
+    查询值截断到 2000 与写入时 _title 的截断保持一致，避免超长名每次重建。"""
     resp = client.databases.query(
         database_id=database_id,
-        filter={"property": title_prop, "title": {"equals": title_value}},
+        filter={"property": title_prop, "title": {"equals": title_value[:2000]}},
     )
     results = resp.get("results", [])
-    return results[0]["id"] if results else None
+    if not results:
+        return None
+    if len(results) > 1:
+        logger.warning("库 %s 中标题 %r 命中 %d 个页面，更新第一个，其余将变陈旧",
+                       database_id, title_value, len(results))
+    return results[0]["id"]
 
 
 def _upsert_all(items: list, client: Any, database_id: str, title_prop: str,
