@@ -4,6 +4,10 @@ import subprocess
 
 # (stderr 子串, 人话提示) —— 命中第一个即返回。注意顺序：更具体的放前面。
 _ERROR_HINTS = [
+    ("no module named", "wechat-decrypt 解密依赖没装：进入仓库目录 "
+                        "`python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt`"
+                        "（见引导页第①步）。"),
+    (".venv/bin/python3", "wechat-decrypt 仓库缺 venv：进入仓库目录建 venv 并装 requirements（见引导页第①步）。"),
     ("could not find process", "微信没在运行：请先打开并登录微信 4.x，再重试。"),
     ("task_for_pid", "无法读取微信进程内存：需要先对 WeChat.app 做 ad-hoc 重签名"
                      "（sudo codesign --force --deep --sign - /Applications/WeChat.app），"
@@ -76,9 +80,12 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
          "argv": ["osascript", "-e", admin_applescript(
              f"cd {repo_dir} && ./find_all_keys_macos")]},
         {"desc": "解密数据库",
-         "argv": ["bash", "-lc", f"cd {repo_dir} && python3 decrypt_db.py"]},
+         "argv": ["bash", "-lc",
+                  f'cd {repo_dir} && "{repo_dir}/.venv/bin/python3" decrypt_db.py']},
         {"desc": "导出聊天记录",
-         "argv": ["bash", "-lc", f"cd {repo_dir} && python3 export_all_chats.py {raw_out}"]},
+         "argv": ["bash", "-lc",
+                  f'cd {repo_dir} && "{repo_dir}/.venv/bin/python3" '
+                  f"export_all_chats.py {raw_out}"]},
         {"desc": "转换成本项目格式",
          "argv": ["bash", "-lc",
                   f"qun-alpha import-export --src-dir {raw_out} "
