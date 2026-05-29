@@ -50,3 +50,48 @@ def test_run_job_emits_progress_stages(tmp_path):
     assert "write" in stages
     assert stages.count("extract") == 2
     assert events[-1].current == events[-1].total
+
+
+from qun_alpha.job_store import JobStore
+
+
+def test_run_job_records_progress_to_store(tmp_path):
+    store = JobStore(dir=str(tmp_path / "jobs"))
+    store.create("jx", {})
+    events = []
+    result = run_job(
+        export_path="tests/fixtures/export_sample.json",
+        group_ids=["g1"], start=0, end=2_000_000_000,
+        max_messages=1, prompt_version="v1",
+        runner=_fake_runner, cache_dir=str(tmp_path / "cache"),
+        notion_client=None,
+        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
+        dry_run=True, emit=events.append,
+        concurrency=3, job_store=store, job_id="jx",
+    )
+    assert result["chunks"] == 2
+    rec = store.load("jx")
+    assert len(rec["done"]) == 2
+    assert rec["failed"] == []
+    assert [e.stage for e in events].count("extract") == 2
+
+
+from qun_alpha.cursor_store import CursorStore
+
+
+def test_incremental_skips_old_and_advances_cursor(tmp_path):
+    cur = CursorStore(path=str(tmp_path / "cursors.json"))
+    cur.set("g1", 1716700000)        # m1(=1716700000) 及更早被跳过；m4(1716786400) 保留
+    events = []
+    result = run_job(
+        export_path="tests/fixtures/export_sample.json",
+        group_ids=["g1"], start=0, end=2_000_000_000,
+        max_messages=1, prompt_version="v1",
+        runner=_fake_runner, cache_dir=str(tmp_path / "cache"),
+        notion_client=None,
+        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
+        dry_run=True, emit=events.append,
+        incremental=True, cursor_store=cur,
+    )
+    assert result["chunks"] == 1                 # 只剩 m4 一块
+    assert cur.get("g1") == 1716786400           # 游标推进到本次最大 ts
