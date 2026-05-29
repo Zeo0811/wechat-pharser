@@ -219,3 +219,11 @@ def test_decrypt_export_config_error_returns_400():
                      config_loader=boom)
     client = TestClient(app)
     assert client.post("/api/decrypt-export").status_code == 400
+
+
+def test_index_has_decrypt_card():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert 'id="codesignBtn"' in html
+    assert 'id="decryptBtn"' in html
+    assert "解密微信" in html
