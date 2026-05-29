@@ -10,6 +10,7 @@ from qun_alpha import chat_reader, orchestrator, extractor, estimate as estimate
 from qun_alpha.cursor_store import CursorStore
 from qun_alpha.job_store import JobStore
 from qun_alpha.jobs import JobManager
+from qun_alpha.processed_store import ProcessedStore
 
 TargetFactory = Callable[[dict], Callable[[Callable[[Any], None]], dict]]
 GroupsProvider = Callable[[str], list]
@@ -60,7 +61,7 @@ def _default_target_factory(params: dict):
     runners.ensure_available(backend)
 
     def target(emit):
-        return orchestrator.run_job(
+        result = orchestrator.run_job(
             export_path=params["export_path"],
             group_ids=params["group_ids"],
             start=params.get("start", 0),
@@ -77,6 +78,11 @@ def _default_target_factory(params: dict):
             concurrency=concurrency,
             incremental=incremental, cursor_store=cursor,
         )
+        try:
+            ProcessedStore().mark(params.get("group_ids", []))
+        except Exception:
+            pass
+        return result
     return target
 
 
@@ -95,7 +101,8 @@ def create_app(*, manager: Optional[JobManager] = None,
                job_store: Optional[Any] = None,
                estimator: Optional[Callable] = None,
                decrypt_runner: Optional[Callable] = None,
-               config_loader: Optional[Callable] = None) -> FastAPI:
+               config_loader: Optional[Callable] = None,
+               processed_store: Optional[Any] = None) -> FastAPI:
     if manager is None:
         job_store = job_store or JobStore()
         manager = JobManager(job_store=job_store)
@@ -106,11 +113,21 @@ def create_app(*, manager: Optional[JobManager] = None,
     if config_loader is None:
         from qun_alpha.config import load_config
         config_loader = lambda: load_config("config.json")
+    processed_store = processed_store or ProcessedStore()
     app = FastAPI(title="群聊投资机会分析")
 
     @app.get("/api/groups")
     def groups(export_path: str):
-        return JSONResponse(groups_provider(export_path))
+        out = []
+        for g in groups_provider(export_path):
+            g = dict(g)
+            p = processed_store.get(g["group_id"])
+            g["processed"] = bool(p)
+            if p:
+                g["runs"] = p.get("runs")
+                g["last"] = p.get("last")
+            out.append(g)
+        return JSONResponse(out)
 
     @app.post("/api/jobs")
     async def start_job(req: Request):

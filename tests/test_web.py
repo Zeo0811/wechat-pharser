@@ -228,3 +228,29 @@ def test_index_has_decrypt_card():
     assert 'id="codesignBtn"' in html
     assert 'id="decryptBtn"' in html
     assert "解密微信" in html
+
+
+def test_groups_endpoint_shows_processed(tmp_path):
+    from qun_alpha.processed_store import ProcessedStore
+    ps = ProcessedStore(path=str(tmp_path / "p.json"))
+    ps.mark(["g1"], when="2026-05-29T10:00:00")
+    app = create_app(manager=JobManager(),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [
+                         {"group_id": "g1", "group_name": "A", "count": 5},
+                         {"group_id": "g2", "group_name": "B", "count": 3}],
+                     processed_store=ps)
+    client = TestClient(app)
+    data = client.get("/api/groups", params={"export_path": "x"}).json()
+    g1 = next(g for g in data if g["group_id"] == "g1")
+    g2 = next(g for g in data if g["group_id"] == "g2")
+    assert g1["processed"] is True and g1["runs"] == 1
+    assert g2["processed"] is False
+
+
+def test_index_has_group_search_and_selectall():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert 'id="groupSearch"' in html
+    assert 'id="selectAll"' in html
+    assert "已分析" in html
