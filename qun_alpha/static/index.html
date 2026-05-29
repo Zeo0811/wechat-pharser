@@ -52,6 +52,15 @@
   </div>
 </div>
 
+<div class="card">
+  <label>解密微信（首次设置签名后，日常只点②）</label>
+  <div class="row" style="margin-top:10px">
+    <button id="codesignBtn" class="ghost">① 重签名（首次）</button>
+    <button id="decryptBtn">② 解密并导出</button>
+  </div>
+  <div class="muted" style="margin-top:8px">①会退出微信并弹管理员密码框；之后请重开并登录微信，再点②。②需微信开着且已登录。</div>
+</div>
+
 <div class="card" id="groupsCard" style="display:none">
   <label>选择群</label>
   <div id="groups"></div>
@@ -87,6 +96,42 @@ $("themeToggle").onclick=()=>{
 };
 
 const selectedGroups=()=>[...document.querySelectorAll(".grp:checked")].map(e=>e.value);
+
+function streamJob(job_id, onDone){
+  $("log").textContent="";$("result").className="";$("result").textContent="";
+  $("barfill").style.width="0";$("barfill").classList.add("pulse");
+  const src=new EventSource("/api/jobs/"+job_id+"/stream");
+  src.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.stage!==undefined&&d.total!==undefined){
+      const pct=d.total?Math.round(d.current/d.total*100):100;
+      $("barfill").style.width=pct+"%";
+      $("log").textContent+=`[${d.stage}] ${d.message}\n`;$("log").scrollTop=$("log").scrollHeight;
+    }
+    if(d.status){
+      src.close();$("barfill").classList.remove("pulse");
+      if(d.status==="error"){$("result").textContent="出错："+d.error;$("result").className="show";}
+      else{$("result").className="show";if(onDone)onDone(d);}
+    }
+  };
+}
+
+async function postJob(url){
+  const res=await fetch(url,{method:"POST"});
+  const body=await res.json();
+  if(!res.ok){$("result").textContent="失败："+(body.error||res.status);$("result").className="show";return null;}
+  return body;
+}
+
+$("codesignBtn").onclick=async()=>{
+  const b=await postJob("/api/codesign");
+  if(b)streamJob(b.job_id,()=>{$("result").textContent="重签名完成，请重新打开并登录微信，再点②。";});
+};
+
+$("decryptBtn").onclick=async()=>{
+  const b=await postJob("/api/decrypt-export");
+  if(b)streamJob(b.job_id,()=>{if(b.export_path)$("export_path").value=b.export_path;$("result").textContent="解密导出完成，正在加载群…";$("loadGroups").click();});
+};
 
 $("loadGroups").onclick=async()=>{
   const ep=$("export_path").value.trim();

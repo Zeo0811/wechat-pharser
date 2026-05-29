@@ -35,3 +35,63 @@ def test_cli_decrypt_guide_returns_steps():
     assert isinstance(steps, list)
     assert len(steps) >= 6
     assert all("command" in s and "desc" in s for s in steps)
+
+
+from qun_alpha.decrypt_service import (
+    admin_applescript, codesign_steps, decrypt_export_steps, run_sequence,
+)
+
+
+def test_admin_applescript_wraps_and_escapes():
+    s = admin_applescript('codesign --sign - "/Applications/WeChat.app"')
+    assert "with administrator privileges" in s
+    assert s.startswith("do shell script ")
+    assert '\\"' in s
+
+
+def test_codesign_steps_sequence():
+    steps = codesign_steps()
+    assert [s["desc"] for s in steps]
+    assert any("killall WeChat" in " ".join(s["argv"]) for s in steps)
+    assert any("administrator privileges" in " ".join(s["argv"]) for s in steps)
+
+
+def test_decrypt_export_steps_paths_and_order():
+    steps = decrypt_export_steps(repo_dir="/R", raw_out="/O", export_path="/E.json")
+    joined = ["".join(s["argv"]) for s in steps]
+    blob = "\n".join(joined)
+    assert "/R/find_all_keys_macos.c" in blob
+    assert "administrator privileges" in blob
+    assert "decrypt_db.py" in blob
+    assert "export_all_chats.py /O" in blob
+    assert "import-export" in blob and "/E.json" in blob
+    idx = lambda kw: next(i for i, b in enumerate(joined) if kw in b)
+    assert idx("find_all_keys_macos.c") < idx("administrator privileges") \
+           < idx("decrypt_db.py") < idx("export_all_chats.py") < idx("import-export")
+
+
+def test_run_sequence_runs_all_and_emits():
+    events = []
+    calls = []
+    runner = lambda argv: (calls.append(argv) or (0, ""))
+    steps = [{"desc": "a", "argv": ["x"]}, {"desc": "b", "argv": ["y"]}]
+    out = run_sequence(steps, runner=runner, emit=events.append)
+    assert out["steps"] == 2
+    assert len(calls) == 2
+    assert [e["current"] for e in events] == [1, 2]
+    assert events[0]["total"] == 2 and events[0]["message"] == "a"
+
+
+def test_run_sequence_stops_on_failure_with_hint():
+    import pytest
+    calls = []
+
+    def runner(argv):
+        calls.append(argv)
+        return (1, "task_for_pid failed (5)")
+
+    steps = [{"desc": "scan", "argv": ["s"]}, {"desc": "next", "argv": ["n"]}]
+    with pytest.raises(RuntimeError) as ei:
+        run_sequence(steps, runner=runner, emit=lambda e: None)
+    assert "重签名" in str(ei.value)
+    assert len(calls) == 1

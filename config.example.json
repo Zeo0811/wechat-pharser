@@ -6,5 +6,8 @@
     "notion_links_db_id": "",
     "max_messages_per_chunk": 100,
     "prompt_version": "v1",
-    "cache_dir": ".qun_cache"
+    "cache_dir": ".qun_cache",
+    "wechat_decrypt_repo": "~/wechat-research/ylytdeng-wechat-decrypt",
+    "raw_export_dir": "exported_chats/raw",
+    "export_path": "exported_chats/all.json"
 }
