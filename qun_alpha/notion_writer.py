@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Callable
-from qun_alpha.models import Company
+from qun_alpha.models import Company, Person
 
 
 def _rt(text: str) -> dict:
@@ -70,3 +70,24 @@ def write_companies(companies: list[Company], client: Any, database_id: str,
                     dry_run: bool = False) -> list[Any]:
     return _upsert_all(companies, client, database_id, "Company",
                        lambda c: c.name, company_to_properties, dry_run)
+
+
+def person_to_properties(p: Person) -> dict[str, Any]:
+    props: dict[str, Any] = {
+        "Person": _title(p.name),
+        "Mntns": {"number": p.mentions},
+    }
+    if p.role:
+        props["Role"] = _rt(p.role)
+    if p.affiliated_companies:
+        props["Affiliated"] = {
+            "multi_select": [{"name": c[:100]} for c in p.affiliated_companies]}
+    if p.notable_quotes:
+        props["Quotes"] = _rt(" | ".join(p.notable_quotes))
+    return props
+
+
+def write_people(people: list[Person], client: Any, database_id: str,
+                 dry_run: bool = False) -> list[Any]:
+    return _upsert_all(people, client, database_id, "Person",
+                       lambda p: p.name, person_to_properties, dry_run)

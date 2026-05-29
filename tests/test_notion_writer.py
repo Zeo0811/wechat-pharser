@@ -1,5 +1,5 @@
-from qun_alpha.models import Company, SourceRef
-from qun_alpha.notion_writer import company_to_properties, write_companies
+from qun_alpha.models import Company, Person, SourceRef
+from qun_alpha.notion_writer import company_to_properties, write_companies, person_to_properties, write_people
 
 
 def _company(name="IrisGo", score=72, status="emerging"):
@@ -94,3 +94,37 @@ def test_write_companies_updates_when_present():
     assert len(client.updated) == 1
     assert client.updated[0]["page_id"] == "oldpage"
     assert out == ["oldpage"]
+
+
+def _person():
+    return Person(
+        name="梦琪", mentions=2, role="创始人",
+        affiliated_companies=["invoko.ai"],
+        notable_quotes=["一个AI创始人", "虚荣心、装"],
+        sources=[SourceRef(group_name="AI投资群", sender="小李",
+                           timestamp=1716700000, msg_id="p1")],
+    )
+
+
+def test_person_to_properties_maps_fields():
+    props = person_to_properties(_person())
+    assert props["Person"]["title"][0]["text"]["content"] == "梦琪"
+    assert props["Mntns"]["number"] == 2
+    assert props["Role"]["rich_text"][0]["text"]["content"] == "创始人"
+    assert props["Affiliated"]["multi_select"][0]["name"] == "invoko.ai"
+    assert "一个AI创始人" in props["Quotes"]["rich_text"][0]["text"]["content"]
+
+
+def test_write_people_creates_when_absent():
+    client = FakeClient(existing_id=None)
+    out = write_people([_person()], client=client,
+                       database_id="pdb", dry_run=False)
+    assert len(client.created) == 1
+    assert out == ["newpage"]
+
+
+def test_write_people_dry_run():
+    payloads = write_people([_person()], client=None,
+                            database_id="pdb", dry_run=True)
+    assert payloads[0]["parent"]["database_id"] == "pdb"
+    assert payloads[0]["properties"]["Person"]["title"][0]["text"]["content"] == "梦琪"
