@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>群聊投资机会分析 · 本地工具</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 680px;
+         margin: 48px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; }
+  h1 { font-size: 24px; }
+  h2 { font-size: 17px; margin-top: 32px; }
+  code, pre { background: #f5f5f5; border-radius: 6px; font-family: ui-monospace, monospace; }
+  code { padding: 2px 6px; }
+  pre { padding: 12px 14px; overflow-x: auto; }
+  .note { background: #fff8e1; border-left: 3px solid #f0c000; padding: 10px 14px;
+          border-radius: 4px; margin: 16px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>群聊投资机会分析</h1>
+<p>从你自己的微信高质量群聊里，用本地模型提炼潜在投资机会，整理成 Notion 情报 CRM。
+   <strong>聊天数据全程留在你本机</strong>，不上云。</p>
+
+<div class="note">
+  这是一个<strong>本地工具</strong>。下面的命令都在你自己的 Mac 上跑，
+  网页只负责引导。微信原始数据、密钥都不会离开你的电脑。
+</div>
+
+<h2>1. 安装</h2>
+<pre>git clone &lt;本项目仓库&gt; ~/qun-alpha
+cd ~/qun-alpha
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -e .</pre>
+
+<h2>2. 解密并导出微信聊天（按引导执行）</h2>
+<pre>qun-alpha decrypt-guide</pre>
+<p>它会打印 macOS 上提取密钥 → 解库 → 导出的确切命令（含 sudo 的需你亲自确认）。</p>
+
+<h2>3. 配置 Notion（可选，要写表才需要）</h2>
+<pre>cp config.example.json config.json   # 填 notion_token
+qun-alpha init-notion                 # 自动建三张表并打印 id</pre>
+
+<h2>4. 起本地操作台</h2>
+<pre>qun-alpha serve                       # 浏览器开 http://127.0.0.1:7800</pre>
+<p>选群 → 时间范围 → 开始 → 看进度 → 结果写进 Notion。</p>
+
+<div class="note">免责：仅用于分析<strong>你自己的</strong>微信数据，请遵守相关法律法规。</div>
+</body>
+</html>

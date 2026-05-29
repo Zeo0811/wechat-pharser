@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional
 import typer
-from qun_alpha import extractor, notion_writer, orchestrator, wechat_import
+from qun_alpha import extractor, notion_writer, orchestrator, wechat_import, decrypt_service
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
@@ -102,6 +102,24 @@ def import_export(
     n = wechat_import.convert_export_dir(src_dir, out_path, groups_only=groups_only)
     typer.echo(f"已转换 {n} 个会话 → {out_path}")
     return n
+
+
+@app.command("decrypt-guide")
+def decrypt_guide(
+    repo_dir: str = typer.Option("~/wechat-research/ylytdeng-wechat-decrypt",
+                                 help="wechat-decrypt 仓库路径"),
+    output_dir: str = typer.Option("exported_chats/raw",
+                                   help="export_all_chats.py 的导出目录"),
+) -> list:
+    """打印 macOS 上提取密钥→解库→导出→接回本项目的确切命令（工具不替你跑 sudo）。"""
+    import os
+    steps = decrypt_service.macos_steps(
+        repo_dir=os.path.expanduser(repo_dir), output_dir=output_dir)
+    typer.echo("在 Mac 上依次执行（含 sudo 的需你亲自确认）：\n")
+    for s in steps:
+        typer.echo(s["desc"])
+        typer.echo(f"    {s['command']}\n")
+    return steps
 
 
 if __name__ == "__main__":
