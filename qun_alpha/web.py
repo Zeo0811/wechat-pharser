@@ -87,7 +87,11 @@ def create_app(*, manager: Optional[JobManager] = None,
     @app.post("/api/jobs")
     async def start_job(req: Request):
         params = await req.json()
-        job_id = manager.start(target_factory(params))
+        try:
+            target = target_factory(params)
+        except Exception as e:               # 构建任务失败（如缺 config.json）→ 给前端可读错误
+            return JSONResponse({"error": str(e)}, status_code=400)
+        job_id = manager.start(target)
         return {"job_id": job_id}
 
     @app.get("/api/jobs/{job_id}")

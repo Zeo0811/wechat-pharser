@@ -49,6 +49,17 @@ def test_unknown_job_404():
     assert client.get("/api/jobs/nope").status_code == 404
 
 
+def test_start_job_target_build_failure_returns_400():
+    def boom_factory(params):
+        raise FileNotFoundError("配置文件不存在：config.json")
+    app = create_app(manager=JobManager(), target_factory=boom_factory,
+                     groups_provider=lambda ep: [])
+    client = TestClient(app)
+    r = client.post("/api/jobs", json={"export_path": "x", "group_ids": ["g1"]})
+    assert r.status_code == 400
+    assert "config.json" in r.json()["error"]
+
+
 from qun_alpha.web import iter_sse
 
 
