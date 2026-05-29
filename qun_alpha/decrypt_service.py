@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
 import subprocess
+
+# 自带的免 SIP 4.1 取密钥扫描器源码（codec_ctx 方式）
+_NATIVE_DIR = os.path.join(os.path.dirname(__file__), "native")
+_CODEC_SRC = os.path.join(_NATIVE_DIR, "find_keys_codec.c")
 
 # (stderr 子串, 人话提示) —— 命中第一个即返回。注意顺序：更具体的放前面。
 _ERROR_HINTS = [
@@ -71,15 +76,16 @@ def codesign_steps() -> list[dict]:
 
 
 def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[dict]:
-    """② 提密钥→解库→导出→转格式。提密钥需管理员，其余不需。"""
+    """② 提密钥→解库→导出→转格式。提密钥需管理员，其余不需。
+    用自带的 find_keys_codec（codec_ctx 方式，支持微信 4.1，免 SIP）。"""
     return [
         {"desc": "编译密钥扫描器",
          "argv": ["bash", "-lc",
-                  f"cc -O2 -o {repo_dir}/find_all_keys_macos "
-                  f"{repo_dir}/find_all_keys_macos.c -framework Foundation"]},
-        {"desc": "提取数据库密钥（管理员）",
+                  f'cc -O2 -o {repo_dir}/find_keys_codec '
+                  f'"{_CODEC_SRC}" -framework Foundation']},
+        {"desc": "提取数据库密钥（管理员，需一两分钟扫内存）",
          "argv": ["osascript", "-e", admin_applescript(
-             f"cd {repo_dir} && ./find_all_keys_macos")]},
+             f"cd {repo_dir} && ./find_keys_codec")]},
         {"desc": "校验密钥",
          "argv": ["bash", "-lc",
                   f'grep -qE "[0-9a-f]{{16}}" {repo_dir}/all_keys.json '

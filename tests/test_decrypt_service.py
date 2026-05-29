@@ -60,13 +60,13 @@ def test_decrypt_export_steps_paths_and_order():
     steps = decrypt_export_steps(repo_dir="/R", raw_out="/O", export_path="/E.json")
     joined = ["".join(s["argv"]) for s in steps]
     blob = "\n".join(joined)
-    assert "/R/find_all_keys_macos.c" in blob
+    assert "find_keys_codec" in blob          # 自带的 4.1 codec_ctx 扫描器
     assert "administrator privileges" in blob
     assert "decrypt_db.py" in blob
     assert "export_all_chats.py /O" in blob
     assert "import-export" in blob and "/E.json" in blob
     idx = lambda kw: next(i for i, b in enumerate(joined) if kw in b)
-    assert idx("find_all_keys_macos.c") < idx("administrator privileges") \
+    assert idx("find_keys_codec") < idx("administrator privileges") \
            < idx("decrypt_db.py") < idx("export_all_chats.py") < idx("import-export")
 
 
