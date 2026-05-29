@@ -83,11 +83,16 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
          "argv": ["bash", "-lc",
                   f'cc -O2 -o {repo_dir}/find_keys_codec '
                   f'"{_CODEC_SRC}" -framework Foundation']},
-        # osascript 管理员授权以 root 跑、不保留用户 HOME（会变 /var/root），
-        # 故显式传当前用户 HOME，否则扫描器找不到 ~/Library 下的微信数据。
+        # 读 DB 元数据(salt+page1)用「当前用户身份」跑——用户进程有磁盘访问权限，
+        # 能读受 TCC 保护的微信容器；osascript 管理员(root)反而会被 TCC 拦。
+        {"desc": "读取数据库元数据",
+         "argv": ["bash", "-lc",
+                  f'cd {repo_dir} && ./find_keys_codec --dump-meta '
+                  f'{repo_dir}/dbmeta.bin {os.path.expanduser("~")}']},
+        # 扫内存提密钥需 root（task_for_pid）；只吃元数据文件，不碰 TCC 容器目录。
         {"desc": "提取数据库密钥（管理员，需一两分钟扫内存）",
          "argv": ["osascript", "-e", admin_applescript(
-             f"cd {repo_dir} && ./find_keys_codec 0 0 {os.path.expanduser('~')}")]},
+             f"cd {repo_dir} && ./find_keys_codec --scan {repo_dir}/dbmeta.bin")]},
         {"desc": "校验密钥",
          "argv": ["bash", "-lc",
                   f'grep -qE "[0-9a-f]{{16}}" {repo_dir}/all_keys.json '

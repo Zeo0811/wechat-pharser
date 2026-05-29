@@ -158,14 +158,110 @@ static int all_solved(void) {
     return 1;
 }
 
-int main(int argc, char *argv[]) {
-    /* argv: [pid(0=auto)] [window(0=default)] [home_override] */
-    pid_t pid = (argc >= 2 && atoi(argv[1]) > 0) ? atoi(argv[1]) : find_wechat_pid();
-    long window = (argc >= 3 && atol(argv[2]) > 0) ? atol(argv[2]) : DEFAULT_WINDOW;
-    const char *home_arg = (argc >= 4 && argv[3][0]) ? argv[3] : NULL;
-    if (pid <= 0) { fprintf(stderr, "WeChat 未运行\n"); return 1; }
+/* 以当前身份遍历 db_storage 收集每个 DB 的 salt+page1（需磁盘访问权限，不需 root）*/
+static void collect_dbs(const char *home) {
+    if (!home || !home[0]) home = "/root";
+    char base[512];
+    snprintf(base, sizeof(base),
+        "%s/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files", home);
+    fprintf(stderr, "HOME=%s\nbase=%s\n", home, base);
+    DIR *xdir = opendir(base);
+    if (!xdir) {
+        fprintf(stderr, "opendir(base) 失败: errno=%d (%s)\n", errno, strerror(errno));
+        return;
+    }
+    struct dirent *ent;
+    while ((ent = readdir(xdir)) != NULL) {
+        if (ent->d_name[0] == '.') continue;
+        char sp[768];
+        snprintf(sp, sizeof(sp), "%s/%s/db_storage", base, ent->d_name);
+        struct stat st;
+        if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode))
+            nftw(sp, nftw_collect, 20, FTW_PHYS);
+    }
+    closedir(xdir);
+}
 
+/* 把收集到的 DB 元数据(rel+salt+page1)写到文件，供 --scan 模式(root)读取，
+ * 这样 root 进程无需触碰受 TCC 保护的微信容器目录。*/
+static int dump_meta(const char *path) {
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    int cnt = g_db_count;
+    fwrite(&cnt, sizeof(int), 1, f);
+    for (int i = 0; i < g_db_count; i++) {
+        int rl = (int)strlen(g_db[i].rel);
+        fwrite(&rl, sizeof(int), 1, f);
+        fwrite(g_db[i].rel, 1, rl, f);
+        fwrite(g_db[i].salt, 1, SALT_SIZE, f);
+        fwrite(g_db[i].page1, 1, PAGE_SZ, f);
+    }
+    fclose(f);
+    return 0;
+}
+
+static int load_meta(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    int cnt = 0;
+    if (fread(&cnt, sizeof(int), 1, f) != 1 || cnt < 0 || cnt > MAX_DBS) {
+        fclose(f); return -1;
+    }
+    g_db_count = 0;
+    for (int i = 0; i < cnt; i++) {
+        int rl = 0;
+        if (fread(&rl, sizeof(int), 1, f) != 1 || rl < 0 || rl > 255) break;
+        db_t *d = &g_db[g_db_count];
+        if (fread(d->rel, 1, rl, f) != (size_t)rl) break;
+        d->rel[rl] = '\0';
+        if (fread(d->salt, 1, SALT_SIZE, f) != SALT_SIZE) break;
+        if (fread(d->page1, 1, PAGE_SZ, f) != PAGE_SZ) break;
+        d->has_page1 = 1; d->solved = 0; d->salt_hits = 0; d->enc_key_hex[0] = '\0';
+        g_db_count++;
+    }
+    fclose(f);
+    return 0;
+}
+
+/* 解析 home：优先命令行参数（osascript 管理员下 HOME 会变 /var/root）*/
+static const char *resolve_home(const char *home_arg) {
+    if (home_arg && home_arg[0]) return home_arg;
+    const char *home = getenv("HOME");
+    const char *su = getenv("SUDO_USER");
+    if (su) { struct passwd *pw = getpwnam(su); if (pw && pw->pw_dir) home = pw->pw_dir; }
+    if (!home) home = "/root";
+    return home;
+}
+
+int main(int argc, char *argv[]) {
     fprintf(stderr, "=== find_keys_codec (实验性, 免SIP, 4.1) ===\n");
+
+    /* ① dump-meta 模式：以当前用户身份读容器 DB 元数据(salt+page1)写文件。
+     *    用户进程有磁盘访问权限，能读 ~/Library/Containers；不需 root。
+     *    用法: find_keys_codec --dump-meta <out> [home] */
+    if (argc >= 3 && strcmp(argv[1], "--dump-meta") == 0) {
+        collect_dbs(resolve_home(argc >= 4 ? argv[3] : NULL));
+        fprintf(stderr, "加密 DB 数：%d\n", g_db_count);
+        if (g_db_count == 0) return 1;
+        if (dump_meta(argv[2]) != 0) { fprintf(stderr, "写元数据失败\n"); return 1; }
+        fprintf(stderr, "已写元数据 %s（%d 库）\n", argv[2], g_db_count);
+        return 0;
+    }
+
+    /* ② scan 模式：root 只扫内存提密钥，DB 元数据从文件读（不碰 TCC 容器）。
+     *    用法: find_keys_codec --scan <metafile> [window] */
+    long window = DEFAULT_WINDOW;
+    int scan_mode = (argc >= 3 && strcmp(argv[1], "--scan") == 0);
+    if (scan_mode) {
+        if (load_meta(argv[2]) != 0) {
+            fprintf(stderr, "读元数据失败：%s\n", argv[2]); return 1;
+        }
+        if (argc >= 4 && atol(argv[3]) > 0) window = atol(argv[3]);
+        fprintf(stderr, "从元数据载入 %d 个库\n", g_db_count);
+    }
+
+    pid_t pid = find_wechat_pid();
+    if (pid <= 0) { fprintf(stderr, "WeChat 未运行\n"); return 1; }
     fprintf(stderr, "WeChat PID: %d, window=±%ld 字节\n", pid, window);
 
     mach_port_t task;
@@ -174,36 +270,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* 解析 home：优先命令行参数（osascript 管理员下 HOME 会变 /var/root）*/
-    const char *home = home_arg;
-    if (!home) {
-        home = getenv("HOME");
-        const char *su = getenv("SUDO_USER");
-        if (su) { struct passwd *pw = getpwnam(su); if (pw && pw->pw_dir) home = pw->pw_dir; }
-        if (!home) home = "/root";
+    /* ③ 旧的一体化模式（手动 sudo 从有磁盘权限的终端跑）：[pid] [window] [home] */
+    if (!scan_mode) {
+        collect_dbs(resolve_home(argc >= 4 ? argv[3] : NULL));
+        fprintf(stderr, "加密 DB 数：%d\n", g_db_count);
+        if (g_db_count == 0) { fprintf(stderr, "没找到加密 DB\n"); return 1; }
     }
-
-    char base[512];
-    snprintf(base, sizeof(base),
-        "%s/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files", home);
-    fprintf(stderr, "HOME=%s\nbase=%s\n", home, base);
-    DIR *xdir = opendir(base);
-    if (!xdir) fprintf(stderr, "opendir(base) 失败: errno=%d (%s)\n",
-                       errno, strerror(errno));
-    if (xdir) {
-        struct dirent *ent;
-        while ((ent = readdir(xdir)) != NULL) {
-            if (ent->d_name[0] == '.') continue;
-            char sp[768];
-            snprintf(sp, sizeof(sp), "%s/%s/db_storage", base, ent->d_name);
-            struct stat st;
-            if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode))
-                nftw(sp, nftw_collect, 20, FTW_PHYS);
-        }
-        closedir(xdir);
-    }
-    fprintf(stderr, "加密 DB 数：%d\n", g_db_count);
-    if (g_db_count == 0) { fprintf(stderr, "没找到加密 DB\n"); return 1; }
 
     long total_scanned = 0, candidates_tried = 0;
     mach_vm_address_t addr = 0;

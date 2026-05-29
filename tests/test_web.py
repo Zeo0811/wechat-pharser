@@ -207,8 +207,8 @@ def test_codesign_and_decrypt_endpoints_run_steps(tmp_path):
     assert r2.json()["export_path"] == "/E.json"
     mgr.join(r2.json()["job_id"])
     assert mgr.get(r2.json()["job_id"]).status == "done"
-    # codesign(2) + decrypt-export(6: 编译/提密钥/校验/解密/导出/转格式)
-    assert len(calls) == 8
+    # codesign(2) + decrypt-export(7: 编译/读元数据/提密钥/校验/解密/导出/转格式)
+    assert len(calls) == 9
 
 
 def test_decrypt_export_config_error_returns_400():
