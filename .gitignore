@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+config.json
+*.db
+.qun_cache/
+exported_chats/
+decrypted/
+all_keys.json

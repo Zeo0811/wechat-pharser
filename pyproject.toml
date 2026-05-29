@@ -1,0 +1,26 @@
+[project]
+name = "qun-alpha"
+version = "0.1.0"
+description = "群聊投资机会分析 — 本地优先投资情报管线"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2,<3",
+    "typer>=0.12,<1",
+    "notion-client>=2.2,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+qun-alpha = "qun_alpha.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["qun_alpha*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
