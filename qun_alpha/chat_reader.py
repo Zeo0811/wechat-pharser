@@ -83,3 +83,15 @@ def chunk_messages(messages: list[Message], max_messages: int,
                 messages=window,
             ))
     return chunks
+
+
+def list_groups(export_path: str) -> list[dict]:
+    """返回 [{group_id, group_name, count}]，按消息数降序。"""
+    messages = load_export(export_path)
+    agg: dict[str, dict] = {}
+    for m in messages:
+        g = agg.setdefault(m.group_id, {
+            "group_id": m.group_id, "group_name": m.group_name, "count": 0})
+        g["group_name"] = m.group_name      # 以最后出现的群名为准
+        g["count"] += 1
+    return sorted(agg.values(), key=lambda g: g["count"], reverse=True)

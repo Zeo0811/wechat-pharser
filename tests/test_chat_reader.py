@@ -59,3 +59,14 @@ def test_chunk_ids_distinct_on_same_timestamp():
     chunks = chunk_messages(same_ts, max_messages=1, prompt_version="v1")
     assert len(chunks) == 2
     assert chunks[0].chunk_id != chunks[1].chunk_id
+
+
+def test_list_groups_counts_and_sorts():
+    from qun_alpha.chat_reader import list_groups
+    groups = list_groups(FIX)
+    # 两个群：g1(4 条) / g2(1 条)，按消息数降序
+    assert [g["group_id"] for g in groups] == ["g1", "g2"]
+    g1 = groups[0]
+    assert g1["group_name"] == "AI投资群"
+    assert g1["count"] == 4
+    assert groups[1]["count"] == 1
