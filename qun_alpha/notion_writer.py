@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Callable
-from qun_alpha.models import Company, Person
+from qun_alpha.models import Company, Person, Link
 
 
 def _rt(text: str) -> dict:
@@ -91,3 +91,24 @@ def write_people(people: list[Person], client: Any, database_id: str,
                  dry_run: bool = False) -> list[Any]:
     return _upsert_all(people, client, database_id, "Person",
                        lambda p: p.name, person_to_properties, dry_run)
+
+
+def link_to_properties(link: Link) -> dict[str, Any]:
+    props: dict[str, Any] = {
+        "Link": _title(link.url),
+    }
+    if link.title:
+        props["Title"] = _rt(link.title)
+    if link.shared_by:
+        props["SharedBy"] = {
+            "multi_select": [{"name": s[:100]} for s in link.shared_by]}
+    if link.related_companies:
+        props["Related"] = {
+            "multi_select": [{"name": c[:100]} for c in link.related_companies]}
+    return props
+
+
+def write_links(links: list[Link], client: Any, database_id: str,
+                dry_run: bool = False) -> list[Any]:
+    return _upsert_all(links, client, database_id, "Link",
+                       lambda link: link.url, link_to_properties, dry_run)

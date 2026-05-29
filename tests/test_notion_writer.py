@@ -128,3 +128,39 @@ def test_write_people_dry_run():
                             database_id="pdb", dry_run=True)
     assert payloads[0]["parent"]["database_id"] == "pdb"
     assert payloads[0]["properties"]["Person"]["title"][0]["text"]["content"] == "梦琪"
+
+
+from qun_alpha.models import Link
+from qun_alpha.notion_writer import link_to_properties, write_links
+
+
+def _link():
+    return Link(
+        url="https://example.com/42", title="profiling founder 梦琪",
+        shared_by=["小李", "老王"], related_companies=["invoko.ai"],
+        first_seen=1716700000,
+        sources=[SourceRef(group_name="AI投资群", sender="小李",
+                           timestamp=1716700000, msg_id="l1")],
+    )
+
+
+def test_link_to_properties_maps_fields():
+    props = link_to_properties(_link())
+    assert props["Link"]["title"][0]["text"]["content"] == "https://example.com/42"
+    assert props["Title"]["rich_text"][0]["text"]["content"] == "profiling founder 梦琪"
+    assert {o["name"] for o in props["SharedBy"]["multi_select"]} == {"小李", "老王"}
+    assert props["Related"]["multi_select"][0]["name"] == "invoko.ai"
+
+
+def test_write_links_updates_when_present():
+    client = FakeClient(existing_id="oldlink")
+    out = write_links([_link()], client=client,
+                      database_id="ldb", dry_run=False)
+    assert client.updated[0]["page_id"] == "oldlink"
+    assert out == ["oldlink"]
+
+
+def test_write_links_dry_run():
+    payloads = write_links([_link()], client=None,
+                           database_id="ldb", dry_run=True)
+    assert payloads[0]["parent"]["database_id"] == "ldb"
