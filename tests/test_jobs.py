@@ -42,3 +42,35 @@ def test_job_ids_unique():
 
 def test_get_unknown_returns_none():
     assert JobManager().get("nope") is None
+
+
+from qun_alpha.job_store import JobStore
+
+
+def test_start_persists_params_and_resume(tmp_path):
+    store = JobStore(dir=str(tmp_path / "jobs"))
+    mgr = JobManager(job_store=store)
+    runs = []
+
+    def build_target(params):
+        def target(emit):
+            runs.append(params["n"])
+            return {"n": params["n"]}
+        return target
+
+    job_id = mgr.start(build_target({"n": 1}), params={"n": 1})
+    mgr.join(job_id)
+    rec = store.load(job_id)
+    assert rec["params"]["n"] == 1
+    assert rec["status"] == "done"
+
+    mgr.resume(job_id, build_target)
+    mgr.join(job_id)
+    assert runs == [1, 1]
+
+
+def test_start_without_store_still_works():
+    mgr = JobManager()
+    jid = mgr.start(lambda emit: {"ok": True})
+    mgr.join(jid)
+    assert mgr.get(jid).status == "done"
