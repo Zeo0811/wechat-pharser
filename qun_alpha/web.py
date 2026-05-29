@@ -2,9 +2,10 @@ from __future__ import annotations
 import dataclasses
 import json
 import time
+from pathlib import Path
 from typing import Any, Callable, Optional
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from qun_alpha import chat_reader
 from qun_alpha.jobs import JobManager
 
@@ -106,5 +107,10 @@ def create_app(*, manager: Optional[JobManager] = None,
     def stream(job_id: str):
         return StreamingResponse(iter_sse(manager, job_id),
                                  media_type="text/event-stream")
+
+    @app.get("/")
+    def index():
+        html = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
+        return HTMLResponse(html)
 
     return app

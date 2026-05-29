@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>群聊投资机会分析</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 720px;
+         margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 20px; }
+  .row { margin: 12px 0; }
+  input[type=text] { width: 100%; padding: 8px; box-sizing: border-box; }
+  #groups label { display: block; padding: 4px 0; }
+  button { padding: 8px 16px; cursor: pointer; }
+  #bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+  #barfill { height: 100%; width: 0; background: #2d7; transition: width .2s; }
+  #log { font-size: 13px; color: #666; white-space: pre-wrap; margin-top: 8px; }
+  #result { margin-top: 16px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>群聊投资机会分析</h1>
+
+<div class="row">
+  <label>导出 JSON 路径</label>
+  <input type="text" id="export_path" placeholder="exported_chats/all.json">
+  <button id="loadGroups">加载群列表</button>
+</div>
+
+<div class="row" id="groups"></div>
+
+<div class="row">
+  <label><input type="checkbox" id="dry_run" checked> 预演（不写 Notion）</label>
+</div>
+
+<div class="row">
+  <button id="start">开始分析</button>
+</div>
+
+<div class="row"><div id="bar"><div id="barfill"></div></div></div>
+<div id="log"></div>
+<div id="result"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+$("loadGroups").onclick = async () => {
+  const ep = $("export_path").value.trim();
+  const res = await fetch("/api/groups?export_path=" + encodeURIComponent(ep));
+  const groups = await res.json();
+  $("groups").innerHTML = groups.map(g =>
+    `<label><input type="checkbox" class="grp" value="${g.group_id}"> ${g.group_name} (${g.count})</label>`
+  ).join("");
+};
+
+$("start").onclick = async () => {
+  const group_ids = [...document.querySelectorAll(".grp:checked")].map(e => e.value);
+  $("log").textContent = "";
+  $("result").textContent = "";
+  $("barfill").style.width = "0";
+  const res = await fetch("/api/jobs", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      export_path: $("export_path").value.trim(),
+      group_ids, dry_run: $("dry_run").checked,
+    }),
+  });
+  const { job_id } = await res.json();
+  const src = new EventSource("/api/jobs/" + job_id + "/stream");
+  src.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.stage && d.total) {
+      $("barfill").style.width = Math.round(d.current / d.total * 100) + "%";
+      $("log").textContent += `[${d.stage}] ${d.message}\n`;
+    }
+    if (d.status) {
+      src.close();
+      if (d.status === "error") {
+        $("result").textContent = "出错：" + d.error;
+      } else {
+        const r = d.result || {};
+        $("result").textContent =
+          `完成：${r.companies||0} 公司 / ${r.people||0} 人 / ${r.links||0} 链接`;
+      }
+    }
+  };
+};
+</script>
+</body>
+</html>

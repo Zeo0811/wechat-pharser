@@ -86,3 +86,12 @@ def test_stream_endpoint_content_type():
         assert resp.headers["content-type"].startswith("text/event-stream")
         body = "".join(resp.iter_text())
     assert "data:" in body
+
+
+def test_index_served():
+    client = _client(JobManager())
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert 'id="groups"' in r.text
+    assert "群聊投资机会" in r.text
