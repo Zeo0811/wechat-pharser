@@ -16,6 +16,7 @@ class Config(BaseModel):
     wechat_decrypt_repo: str = "~/wechat-research/ylytdeng-wechat-decrypt"
     raw_export_dir: str = "exported_chats/raw"
     export_path: str = "exported_chats/all.json"
+    model_backend: str = "claude"   # claude | codex
 
 
 def load_config(path: str = "config.json") -> Config:

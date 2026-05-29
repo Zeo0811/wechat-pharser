@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional
+import json
 import typer
-from qun_alpha import extractor, notion_writer, orchestrator, wechat_import, decrypt_service
+from qun_alpha import extractor, notion_writer, orchestrator, wechat_import, decrypt_service, runners
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
@@ -36,9 +37,12 @@ def analyze(
     end: int = typer.Option(2_000_000_000, help="结束 epoch 秒（默认≈2033，等于无上界）"),
     config_path: str = typer.Option("config.json"),
     dry_run: bool = typer.Option(True, help="只预演不写 Notion"),
+    model: str = typer.Option(None, "--model", help="本次用哪个后端: claude / codex"),
 ):
     """分析指定群的指定时间段，输出实体并（可选）写 Notion 三张表。"""
     cfg = load_config(config_path)
+    backend = model or cfg.model_backend
+    runners.ensure_available(backend)   # CLI 不在 PATH → 提前人话报错
     client = None if dry_run else _notion_client(cfg)
     result = run_pipeline(
         export_path=export_path,
@@ -46,7 +50,7 @@ def analyze(
         start=start, end=end,
         max_messages=cfg.max_messages_per_chunk,
         prompt_version=cfg.prompt_version,
-        runner=extractor.default_claude_runner,
+        runner=runners.get_runner(backend),
         cache_dir=cfg.cache_dir,
         notion_client=client,
         companies_db_id=cfg.notion_companies_db_id,
@@ -120,6 +124,36 @@ def decrypt_guide(
         typer.echo(s["desc"])
         typer.echo(f"    {s['command']}\n")
     return steps
+
+
+def model_status(config_path: str = "config.json", set_backend: "str | None" = None) -> dict:
+    import os
+    available = runners.detect_available()
+    if set_backend is not None:
+        if set_backend not in runners.BACKENDS:
+            raise ValueError(f"未知后端：{set_backend}（支持 {runners.BACKENDS}）")
+        cfg = {}
+        if os.path.exists(config_path):
+            with open(config_path, encoding="utf-8") as f:
+                cfg = json.load(f)
+        cfg["model_backend"] = set_backend
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        return {"available": available, "current": set_backend}
+    current = "claude"
+    if os.path.exists(config_path):
+        from qun_alpha.config import load_config
+        current = load_config(config_path).model_backend
+    return {"available": available, "current": current}
+
+
+@app.command()
+def model(set: str = typer.Option(None, "--set", help="切换后端: claude / codex"),
+          config_path: str = typer.Option("config.json")):
+    """查看/切换模型后端（claude / codex）。"""
+    info = model_status(config_path=config_path, set_backend=set)
+    typer.echo(f"可用后端: {', '.join(info['available']) or '(未检测到 claude/codex)'}")
+    typer.echo(f"当前后端: {info['current']}")
 
 
 if __name__ == "__main__":

@@ -31,3 +31,19 @@ def test_decrypt_path_defaults(tmp_path):
     assert cfg.wechat_decrypt_repo.endswith("ylytdeng-wechat-decrypt")
     assert cfg.raw_export_dir == "exported_chats/raw"
     assert cfg.export_path == "exported_chats/all.json"
+
+
+def test_model_backend_default(tmp_path):
+    import json
+    from qun_alpha.config import load_config
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({}), encoding="utf-8")
+    assert load_config(str(p)).model_backend == "claude"
+
+
+def test_model_backend_override(tmp_path):
+    import json
+    from qun_alpha.config import load_config
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"model_backend": "codex"}), encoding="utf-8")
+    assert load_config(str(p)).model_backend == "codex"
