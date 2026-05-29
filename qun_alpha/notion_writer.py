@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Callable
 from qun_alpha.models import Company
 
 
@@ -33,17 +33,40 @@ def company_to_properties(c: Company) -> dict[str, Any]:
     return props
 
 
+def _find_page_id(client: Any, database_id: str, title_prop: str,
+                  title_value: str):
+    """按标题等值查存量页，命中返回 page_id，否则 None。"""
+    resp = client.databases.query(
+        database_id=database_id,
+        filter={"property": title_prop, "title": {"equals": title_value}},
+    )
+    results = resp.get("results", [])
+    return results[0]["id"] if results else None
+
+
+def _upsert_all(items: list, client: Any, database_id: str, title_prop: str,
+                name_of: Callable[[Any], str],
+                to_props: Callable[[Any], dict], dry_run: bool) -> list:
+    """dry_run 只返回 payload；实跑先查后 update/create。"""
+    results: list = []
+    for it in items:
+        props = to_props(it)
+        if dry_run:
+            results.append({"parent": {"database_id": database_id},
+                            "properties": props})
+            continue
+        existing = _find_page_id(client, database_id, title_prop, name_of(it))
+        if existing:
+            client.pages.update(page_id=existing, properties=props)
+            results.append(existing)
+        else:
+            page = client.pages.create(
+                parent={"database_id": database_id}, properties=props)
+            results.append(page["id"])
+    return results
+
+
 def write_companies(companies: list[Company], client: Any, database_id: str,
                     dry_run: bool = False) -> list[Any]:
-    results = []
-    for c in companies:
-        payload = {
-            "parent": {"database_id": database_id},
-            "properties": company_to_properties(c),
-        }
-        if dry_run:
-            results.append(payload)
-            continue
-        page = client.pages.create(**payload)
-        results.append(page["id"])
-    return results
+    return _upsert_all(companies, client, database_id, "Company",
+                       lambda c: c.name, company_to_properties, dry_run)

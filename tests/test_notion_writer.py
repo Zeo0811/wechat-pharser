@@ -14,6 +14,42 @@ def _company(name="IrisGo", score=72, status="emerging"):
     )
 
 
+class _Pages:
+    def __init__(self, store):
+        self._store = store
+    def create(self, **kw):
+        self._store["created"].append(kw)
+        return {"id": "newpage"}
+    def update(self, **kw):
+        self._store["updated"].append(kw)
+        return {"id": kw["page_id"]}
+
+
+class _Databases:
+    def __init__(self, existing_id):
+        self._existing_id = existing_id
+        self.queries = []
+    def query(self, **kw):
+        self.queries.append(kw)
+        if self._existing_id:
+            return {"results": [{"id": self._existing_id}]}
+        return {"results": []}
+
+
+class FakeClient:
+    """existing_id=None → 库里没有，应走 create；否则走 update。"""
+    def __init__(self, existing_id=None):
+        self._store = {"created": [], "updated": []}
+        self.pages = _Pages(self._store)
+        self.databases = _Databases(existing_id)
+    @property
+    def created(self):
+        return self._store["created"]
+    @property
+    def updated(self):
+        return self._store["updated"]
+
+
 def test_company_to_properties_maps_fields():
     props = company_to_properties(_company())
     assert props["Company"]["title"][0]["text"]["content"] == "IrisGo"
@@ -29,22 +65,32 @@ def test_write_companies_dry_run_does_not_call_api():
             @staticmethod
             def create(**kw):
                 raise AssertionError("dry_run 不应调用 API")
+        class databases:
+            @staticmethod
+            def query(**kw):
+                raise AssertionError("dry_run 不应调用 API")
     payloads = write_companies([_company()], client=BoomClient(),
                                database_id="db1", dry_run=True)
     assert len(payloads) == 1
     assert payloads[0]["parent"]["database_id"] == "db1"
 
 
-def test_write_companies_calls_create():
-    created = []
-    class FakeClient:
-        class pages:
-            @staticmethod
-            def create(**kw):
-                created.append(kw)
-                return {"id": "newpage"}
-    out = write_companies([_company()], client=FakeClient(),
+def test_write_companies_creates_when_absent():
+    client = FakeClient(existing_id=None)
+    out = write_companies([_company()], client=client,
                           database_id="db1", dry_run=False)
-    assert len(created) == 1
-    assert created[0]["parent"]["database_id"] == "db1"
+    assert len(client.created) == 1
+    assert client.created[0]["parent"]["database_id"] == "db1"
+    assert client.updated == []
     assert out == ["newpage"]
+    assert client.databases.queries[0]["database_id"] == "db1"
+
+
+def test_write_companies_updates_when_present():
+    client = FakeClient(existing_id="oldpage")
+    out = write_companies([_company()], client=client,
+                          database_id="db1", dry_run=False)
+    assert client.created == []
+    assert len(client.updated) == 1
+    assert client.updated[0]["page_id"] == "oldpage"
+    assert out == ["oldpage"]
