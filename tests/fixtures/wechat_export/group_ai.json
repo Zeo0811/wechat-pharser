@@ -1,0 +1,10 @@
+{
+  "chat": "AI投资群",
+  "username": "12345@chatroom",
+  "is_group": true,
+  "messages": [
+    {"local_id": 1, "timestamp": 1716700000, "sender": "老王", "content": "IrisGo 拿了 $2.8M 种子轮"},
+    {"local_id": 2, "timestamp": 1716700100, "sender": "me", "content": "[图片]", "type": "image"},
+    {"local_id": 3, "timestamp": 1716700200, "sender": "小李", "type": "voice"}
+  ]
+}
