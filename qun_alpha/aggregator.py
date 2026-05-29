@@ -62,7 +62,9 @@ def _first(values):
     return None
 
 
-def aggregate(entities: list[RawEntity]):
+def aggregate(
+    entities: list[RawEntity],
+) -> tuple[list[Company], list[Person], list[Link]]:
     companies_raw: dict[str, list[RawEntity]] = {}
     people_raw: dict[str, list[RawEntity]] = {}
     links_raw: dict[str, list[RawEntity]] = {}
