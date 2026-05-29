@@ -1,8 +1,10 @@
 from __future__ import annotations
 import dataclasses
+import json
+import time
 from typing import Any, Callable, Optional
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from qun_alpha import chat_reader
 from qun_alpha.jobs import JobManager
 
@@ -15,6 +17,28 @@ def _ev(e: Any) -> dict:
     if dataclasses.is_dataclass(e) and not isinstance(e, type):
         return dataclasses.asdict(e)
     return e
+
+
+def _sse(obj: dict) -> str:
+    return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
+
+
+def iter_sse(manager: JobManager, job_id: str, poll: float = 0.05):
+    """逐个吐进度事件，job 终态时吐一条终态事件后结束。"""
+    sent = 0
+    while True:
+        job = manager.get(job_id)
+        if job is None:
+            yield _sse({"stage": "error", "message": "unknown job"})
+            return
+        while sent < len(job.events):
+            yield _sse(_ev(job.events[sent]))
+            sent += 1
+        if job.status in ("done", "error"):
+            yield _sse({"status": job.status, "result": job.result,
+                        "error": job.error})
+            return
+        time.sleep(poll)
 
 
 def _default_target_factory(params: dict):
@@ -77,5 +101,10 @@ def create_app(*, manager: Optional[JobManager] = None,
             "error": job.error,
             "events": [_ev(e) for e in job.events],
         }
+
+    @app.get("/api/jobs/{job_id}/stream")
+    def stream(job_id: str):
+        return StreamingResponse(iter_sse(manager, job_id),
+                                 media_type="text/event-stream")
 
     return app

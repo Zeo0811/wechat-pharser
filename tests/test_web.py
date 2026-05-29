@@ -47,3 +47,42 @@ def test_start_job_and_poll_status():
 def test_unknown_job_404():
     client = _client(JobManager())
     assert client.get("/api/jobs/nope").status_code == 404
+
+
+from qun_alpha.web import iter_sse
+
+
+def test_iter_sse_replays_events_then_terminal():
+    mgr = JobManager()
+
+    def target(emit):
+        emit({"stage": "read", "current": 1, "total": 1, "message": "ok"})
+        emit({"stage": "extract", "current": 1, "total": 1, "message": "块"})
+        return {"companies": 2}
+
+    job_id = mgr.start(target)
+    mgr.join(job_id)
+    chunks = list(iter_sse(mgr, job_id, poll=0.0))
+    text = "".join(chunks)
+    assert text.count("data:") >= 3          # 2 个进度 + 1 个终态
+    assert '"stage": "read"' in text or '"stage":"read"' in text
+    assert '"status": "done"' in text or '"status":"done"' in text
+
+
+def test_iter_sse_unknown_job():
+    chunks = list(iter_sse(JobManager(), "nope", poll=0.0))
+    assert any("error" in c for c in chunks)
+
+
+def test_stream_endpoint_content_type():
+    mgr = JobManager()
+    client = _client(mgr)
+    r = client.post("/api/jobs", json={"export_path": "x.json",
+                                       "group_ids": ["g1"], "dry_run": True})
+    job_id = r.json()["job_id"]
+    mgr.join(job_id)
+    with client.stream("GET", f"/api/jobs/{job_id}/stream") as resp:
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        body = "".join(resp.iter_text())
+    assert "data:" in body
