@@ -180,3 +180,42 @@ def test_index_has_redesign_elements():
     assert 'id="incremental"' in html
     assert "--accent" in html
     assert 'id="groups"' in html and 'id="start"' in html
+
+
+def test_codesign_and_decrypt_endpoints_run_steps(tmp_path):
+    calls = []
+
+    class Cfg:
+        wechat_decrypt_repo = "/R"
+        raw_export_dir = "/O"
+        export_path = "/E.json"
+
+    mgr = JobManager()
+    app = create_app(manager=mgr,
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [],
+                     decrypt_runner=lambda argv: (calls.append(argv) or (0, "")),
+                     config_loader=lambda: Cfg())
+    client = TestClient(app)
+
+    r1 = client.post("/api/codesign")
+    assert r1.status_code == 200
+    mgr.join(r1.json()["job_id"])
+
+    r2 = client.post("/api/decrypt-export")
+    assert r2.status_code == 200
+    assert r2.json()["export_path"] == "/E.json"
+    mgr.join(r2.json()["job_id"])
+    assert mgr.get(r2.json()["job_id"]).status == "done"
+    assert len(calls) == 7
+
+
+def test_decrypt_export_config_error_returns_400():
+    def boom():
+        raise FileNotFoundError("配置文件不存在")
+    app = create_app(manager=JobManager(),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [],
+                     config_loader=boom)
+    client = TestClient(app)
+    assert client.post("/api/decrypt-export").status_code == 400

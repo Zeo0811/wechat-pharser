@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
-from qun_alpha import chat_reader, orchestrator, extractor, estimate as estimate_mod
+from qun_alpha import chat_reader, orchestrator, extractor, estimate as estimate_mod, decrypt_service
 from qun_alpha.cursor_store import CursorStore
 from qun_alpha.job_store import JobStore
 from qun_alpha.jobs import JobManager
@@ -90,13 +90,19 @@ def create_app(*, manager: Optional[JobManager] = None,
                target_factory: Optional[TargetFactory] = None,
                groups_provider: Optional[GroupsProvider] = None,
                job_store: Optional[Any] = None,
-               estimator: Optional[Callable] = None) -> FastAPI:
+               estimator: Optional[Callable] = None,
+               decrypt_runner: Optional[Callable] = None,
+               config_loader: Optional[Callable] = None) -> FastAPI:
     if manager is None:
         job_store = job_store or JobStore()
         manager = JobManager(job_store=job_store)
     target_factory = target_factory or _default_target_factory
     groups_provider = groups_provider or chat_reader.list_groups
     estimator = estimator or _default_estimator
+    decrypt_runner = decrypt_runner or decrypt_service.default_runner
+    if config_loader is None:
+        from qun_alpha.config import load_config
+        config_loader = lambda: load_config("config.json")
     app = FastAPI(title="群聊投资机会分析")
 
     @app.get("/api/groups")
@@ -153,5 +159,25 @@ def create_app(*, manager: Optional[JobManager] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
         return {"job_id": new_id}
+
+    @app.post("/api/codesign")
+    def codesign_ep():
+        steps = decrypt_service.codesign_steps()
+        job_id = manager.start(
+            lambda emit: decrypt_service.run_sequence(steps, runner=decrypt_runner, emit=emit))
+        return {"job_id": job_id}
+
+    @app.post("/api/decrypt-export")
+    def decrypt_export_ep():
+        try:
+            cfg = config_loader()
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        import os
+        repo = os.path.expanduser(cfg.wechat_decrypt_repo)
+        steps = decrypt_service.decrypt_export_steps(repo, cfg.raw_export_dir, cfg.export_path)
+        job_id = manager.start(
+            lambda emit: decrypt_service.run_sequence(steps, runner=decrypt_runner, emit=emit))
+        return {"job_id": job_id, "export_path": cfg.export_path}
 
     return app
