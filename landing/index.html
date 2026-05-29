@@ -1,49 +1,95 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>群聊投资机会分析 · 本地工具</title>
+<title>群聊投资机会分析 · 安装引导</title>
 <style>
-  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 680px;
-         margin: 48px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; }
-  h1 { font-size: 24px; }
-  h2 { font-size: 17px; margin-top: 32px; }
-  code, pre { background: #f5f5f5; border-radius: 6px; font-family: ui-monospace, monospace; }
-  code { padding: 2px 6px; }
-  pre { padding: 12px 14px; overflow-x: auto; }
-  .note { background: #fff8e1; border-left: 3px solid #f0c000; padding: 10px 14px;
-          border-radius: 4px; margin: 16px 0; font-size: 14px; }
+  html[data-theme="light"]{--base:#eff1f5;--mantle:#e6e9ef;--text:#4c4f69;--subtext:#6c6f85;
+    --surface0:#ccd0da;--accent:#8839ef;--yellow:#df8e1d;--shadow:0 4px 12px rgba(76,79,105,.10)}
+  html[data-theme="dark"]{--base:#1e1e2e;--mantle:#181825;--text:#cdd6f4;--subtext:#a6adc8;
+    --surface0:#313244;--accent:#cba6f7;--yellow:#f9e2af;--shadow:0 4px 16px rgba(0,0,0,.35)}
+  *{box-sizing:border-box}
+  body{font-family:'Maple Mono NF CN','JetBrains Mono','SF Mono',Consolas,monospace;
+    background:var(--mantle);color:var(--text);max-width:720px;margin:0 auto;padding:40px 20px;
+    line-height:1.7;transition:background .3s,color .3s}
+  h1{font-size:24px;display:flex;justify-content:space-between;align-items:center}
+  #themeToggle{background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer}
+  .note{background:color-mix(in srgb,var(--yellow) 18%,transparent);border-left:3px solid var(--yellow);
+    padding:10px 14px;border-radius:6px;margin:16px 0;font-size:14px}
+  .step{background:var(--base);border-radius:12px;padding:16px 18px;margin:14px 0;box-shadow:var(--shadow)}
+  .step h2{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
+  .num{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--accent);
+    color:var(--base);align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+  pre{background:var(--mantle);border-radius:8px;padding:12px 14px;overflow-x:auto;position:relative;
+    font-family:inherit;font-size:13px;margin:8px 0}
+  .copy{position:absolute;top:8px;right:8px;background:var(--surface0);color:var(--text);border:none;
+    border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:inherit}
+  .copy:active{transform:translateY(1px)}
+  .muted{color:var(--subtext);font-size:13px}
 </style>
 </head>
 <body>
-<h1>群聊投资机会分析</h1>
-<p>从你自己的微信高质量群聊里，用本地模型提炼潜在投资机会，整理成 Notion 情报 CRM。
-   <strong>聊天数据全程留在你本机</strong>，不上云。</p>
+<h1>群聊投资机会分析 <button id="themeToggle" title="切换主题">◐</button></h1>
+<p>从你自己的微信高质量群聊里，用<strong>本地模型</strong>提炼潜在投资机会，整理成 Notion 情报 CRM。<strong>聊天数据全程留在你本机</strong>，不上云。</p>
+<div class="note">这是<strong>本地工具</strong>。下面每条命令都在你自己的 Mac 上执行，本页只是说明书。含 <code>sudo</code> 的命令请你亲自确认。</div>
 
-<div class="note">
-  这是一个<strong>本地工具</strong>。下面的命令都在你自己的 Mac 上跑，
-  网页只负责引导。微信原始数据、密钥都不会离开你的电脑。
-</div>
+<div class="step"><h2><span class="num">0</span>前置环境</h2>
+<p class="muted">Python 3.10+ 与 Xcode 命令行工具。</p>
+<pre><button class="copy">复制</button>xcode-select --install</pre></div>
 
-<h2>1. 安装</h2>
-<pre>git clone &lt;本项目仓库&gt; ~/qun-alpha
+<div class="step"><h2><span class="num">1</span>装微信解密包 wechat-decrypt</h2>
+<p class="muted">克隆解密工具并装它的依赖。</p>
+<pre><button class="copy">复制</button>git clone https://github.com/ylytdeng/wechat-decrypt ~/wechat-research/ylytdeng-wechat-decrypt
+cd ~/wechat-research/ylytdeng-wechat-decrypt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt</pre></div>
+
+<div class="step"><h2><span class="num">2</span>装 qun-alpha</h2>
+<pre><button class="copy">复制</button>git clone &lt;qun-alpha 仓库&gt; ~/qun-alpha
 cd ~/qun-alpha
-python3 -m venv .venv &amp;&amp; source .venv/bin/activate
-pip install -e .</pre>
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .</pre></div>
 
-<h2>2. 解密并导出微信聊天（按引导执行）</h2>
-<pre>qun-alpha decrypt-guide</pre>
-<p>它会打印 macOS 上提取密钥 → 解库 → 导出的确切命令（含 sudo 的需你亲自确认）。</p>
+<div class="step"><h2><span class="num">3</span>解密并导出微信聊天</h2>
+<p class="muted">含 <code>sudo</code> 与重签名，需你亲自确认。也可跑 <code>qun-alpha decrypt-guide</code> 打印这串。</p>
+<pre><button class="copy">复制</button>killall WeChat
+sudo codesign --force --deep --sign - /Applications/WeChat.app
+cd ~/wechat-research/ylytdeng-wechat-decrypt
+cc -O2 -o find_all_keys_macos find_all_keys_macos.c -framework Foundation
+sudo ./find_all_keys_macos
+python3 decrypt_db.py
+python3 export_all_chats.py ~/qun-alpha/exported_chats/raw</pre></div>
 
-<h2>3. 配置 Notion（可选，要写表才需要）</h2>
-<pre>cp config.example.json config.json   # 填 notion_token
-qun-alpha init-notion                 # 自动建三张表并打印 id</pre>
+<div class="step"><h2><span class="num">4</span>转成 qun-alpha 格式</h2>
+<pre><button class="copy">复制</button>cd ~/qun-alpha
+qun-alpha import-export --src-dir exported_chats/raw --out-path exported_chats/all.json --groups-only</pre></div>
 
-<h2>4. 起本地操作台</h2>
-<pre>qun-alpha serve                       # 浏览器开 http://127.0.0.1:7800</pre>
-<p>选群 → 时间范围 → 开始 → 看进度 → 结果写进 Notion。</p>
+<div class="step"><h2><span class="num">5</span>配置 Notion（可选）</h2>
+<pre><button class="copy">复制</button>cp config.example.json config.json   # 填 notion_token
+qun-alpha init-notion                 # 建三张表并打印 id，回填 config.json</pre></div>
+
+<div class="step"><h2><span class="num">6</span>起本地操作台</h2>
+<pre><button class="copy">复制</button>qun-alpha serve   # 浏览器开 http://127.0.0.1:7800</pre>
+<p class="muted">选群 → 预估 → 开始 → 看进度 → 结果写进 Notion。</p></div>
 
 <div class="note">免责：仅用于分析<strong>你自己的</strong>微信数据，请遵守相关法律法规。</div>
+
+<script>
+const savedTheme=localStorage.getItem("qa-theme")||"light";
+document.documentElement.setAttribute("data-theme",savedTheme);
+document.getElementById("themeToggle").onclick=()=>{
+  const t=document.documentElement.getAttribute("data-theme")==="light"?"dark":"light";
+  document.documentElement.setAttribute("data-theme",t);localStorage.setItem("qa-theme",t);
+};
+document.querySelectorAll(".copy").forEach(btn=>{
+  btn.onclick=()=>{
+    const pre=btn.parentElement.cloneNode(true);
+    pre.querySelector(".copy").remove();
+    navigator.clipboard.writeText(pre.textContent.trim());
+    const old=btn.textContent;btn.textContent="已复制";setTimeout(()=>btn.textContent=old,1200);
+  };
+});
+</script>
 </body>
 </html>
