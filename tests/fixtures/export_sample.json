@@ -1,0 +1,19 @@
+[
+  {
+    "group_id": "g1",
+    "group_name": "AI投资群",
+    "messages": [
+      {"id": "m1", "sender": "老王", "timestamp": 1716700000, "type": "text", "text": "IrisGo 拿了 $2.8M 种子轮，吴恩达 AI Fund 领投"},
+      {"id": "m2", "sender": "小李", "timestamp": 1716700100, "type": "text", "text": "收到"},
+      {"id": "m3", "sender": "小李", "timestamp": 1716700200, "type": "text", "text": "[图片]"},
+      {"id": "m4", "sender": "老王", "timestamp": 1716786400, "type": "text", "text": "拾象在 buy old shares，dpsk 有希望"}
+    ]
+  },
+  {
+    "group_id": "g2",
+    "group_name": "Crypto群",
+    "messages": [
+      {"id": "n1", "sender": "阿强", "timestamp": 1716700050, "type": "text", "text": "锦秋基金悄悄募了一只新基金，字节做 anchor LP"}
+    ]
+  }
+]
