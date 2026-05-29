@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional
 import typer
-from qun_alpha import chat_reader, extractor, aggregator, notion_writer, orchestrator
+from qun_alpha import extractor, notion_writer, orchestrator
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
