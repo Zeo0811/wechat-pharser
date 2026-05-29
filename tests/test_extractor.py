@@ -54,3 +54,29 @@ def test_extract_uses_cache(tmp_path):
     b = extract_chunk(c, runner=once, cache_dir=str(tmp_path))  # 命中缓存
     assert calls["n"] == 1
     assert a[0].name == b[0].name == "Cached"
+
+
+from qun_alpha.extractor import _parse
+
+
+def test_parse_tolerates_preamble_and_trailing():
+    noisy = ('我帮你分析了一下，结果如下：\n'
+             '[{"kind":"company","name":"X","source":{"group_name":"g","sender":"s",'
+             '"timestamp":1,"msg_id":"m"}}]\n以上就是全部。')
+    out = _parse(noisy)
+    assert out is not None and len(out) == 1 and out[0].name == "X"
+
+
+def test_parse_pure_json_still_works():
+    pure = '[{"kind":"company","name":"Y","source":{"group_name":"g","sender":"s","timestamp":1,"msg_id":"m"}}]'
+    out = _parse(pure)
+    assert out and out[0].name == "Y"
+
+
+def test_parse_garbage_returns_none():
+    assert _parse("完全没有 JSON 的一段话") is None
+
+
+def test_default_claude_runner_is_claude_backend():
+    from qun_alpha import extractor, runners
+    assert extractor.default_claude_runner is runners.claude_runner

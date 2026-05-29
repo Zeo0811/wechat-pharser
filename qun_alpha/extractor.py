@@ -1,10 +1,10 @@
 from __future__ import annotations
 import json
 import os
-import subprocess
 from typing import Callable, Optional
 from pydantic import TypeAdapter, ValidationError
 from qun_alpha.models import MessageChunk, RawEntity
+from qun_alpha import runners
 
 Runner = Callable[[str], str]
 _ADAPTER = TypeAdapter(list[RawEntity])
@@ -28,13 +28,8 @@ def build_prompt(chunk: MessageChunk) -> str:
     return _INSTRUCTION + "\n\n" + "\n".join(lines)
 
 
-def default_claude_runner(prompt: str) -> str:
-    """调用本地 Claude Code CLI（headless）。"""
-    proc = subprocess.run(
-        ["claude", "-p", prompt],
-        capture_output=True, text=True, timeout=300,
-    )
-    return proc.stdout
+# 默认后端 = Claude（保留原名以兼容现有调用）
+default_claude_runner = runners.claude_runner
 
 
 def _strip_fences(text: str) -> str:
@@ -48,11 +43,28 @@ def _strip_fences(text: str) -> str:
     return t.strip()
 
 
-def _parse(text: str) -> Optional[list[RawEntity]]:
+def _extract_json_array(text: str):
+    t = _strip_fences(text)
     try:
-        data = json.loads(_strip_fences(text))
+        return json.loads(t)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    i, j = t.find("["), t.rfind("]")
+    if i != -1 and j > i:
+        try:
+            return json.loads(t[i:j + 1])
+        except (json.JSONDecodeError, ValueError):
+            return None
+    return None
+
+
+def _parse(text: str) -> Optional[list[RawEntity]]:
+    data = _extract_json_array(text)
+    if data is None:
+        return None
+    try:
         return _ADAPTER.validate_python(data)
-    except (json.JSONDecodeError, ValidationError, ValueError):
+    except (ValidationError, ValueError):
         return None
 
 
