@@ -43,6 +43,7 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
 
     raw: list = []
     done = 0
+    succeeded: list = []          # 成功抽取的块，游标只按这些推进，失败块下次仍会被重新覆盖
 
     def _extract(ch):
         return ch, extractor.extract_chunk(ch, runner=runner, cache_dir=cache_dir)
@@ -54,9 +55,11 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
             try:
                 ch, entities = fut.result()
                 raw.extend(entities)
+                succeeded.append(ch)
                 if job_store is not None and job_id is not None:
                     job_store.mark_done(job_id, ch.chunk_id)
             except Exception:
+                # future 抛异常时拿不到 chunk_id，记占位；失败块不计入 succeeded，游标不会跳过它
                 if job_store is not None and job_id is not None:
                     job_store.mark_failed(job_id, f"unknown_{done}")
             emit(ProgressEvent("extract", done, total, f"抽取 {done}/{total} 块"))
@@ -87,7 +90,7 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
     }
     if incremental and cursor_store is not None:
         latest: dict[str, int] = {}
-        for ch in chunks:
+        for ch in succeeded:        # 只按成功的块推进，失败块的消息下次仍会被处理
             latest[ch.group_id] = max(latest.get(ch.group_id, 0), ch.time_end)
         for gid, ts in latest.items():
             cursor_store.set(gid, ts)
