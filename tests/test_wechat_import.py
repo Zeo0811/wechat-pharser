@@ -50,3 +50,11 @@ def test_converted_output_loads_via_chat_reader(tmp_path):
     messages = load_export(str(out))
     assert any(m.text.startswith("IrisGo") for m in messages)
     assert any(m.group_name == "AI投资群" for m in messages)
+
+
+def test_cli_import_export_callable(tmp_path):
+    from qun_alpha.cli import import_export
+    out = tmp_path / "out.json"
+    n = import_export(src_dir=SRC, out_path=str(out), groups_only=False)
+    assert n == 2
+    assert out.exists()
