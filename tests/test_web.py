@@ -113,3 +113,70 @@ def test_build_app_returns_fastapi():
     from fastapi import FastAPI
     app = build_app()
     assert isinstance(app, FastAPI)
+
+
+from qun_alpha.job_store import JobStore
+
+
+def test_estimate_endpoint():
+    app = create_app(manager=JobManager(),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [],
+                     estimator=lambda ep, gids, s, en: {"chunks": 5, "to_run": 5,
+                                                        "est_minutes": 1.0})
+    client = TestClient(app)
+    r = client.get("/api/estimate", params={"export_path": "x.json", "groups": "g1,g2"})
+    assert r.status_code == 200
+    assert r.json()["chunks"] == 5
+
+
+def test_jobs_list_endpoint(tmp_path):
+    store = JobStore(dir=str(tmp_path / "jobs"))
+    store.create("j1", {"group_ids": ["g1"]})
+    app = create_app(manager=JobManager(job_store=store),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [], job_store=store)
+    client = TestClient(app)
+    assert any(j["job_id"] == "j1" for j in client.get("/api/jobs").json())
+
+
+def test_resume_endpoint(tmp_path):
+    store = JobStore(dir=str(tmp_path / "jobs"))
+    mgr = JobManager(job_store=store)
+    runs = []
+
+    def tf(params):
+        def target(emit):
+            runs.append(1)
+            return {"ok": True}
+        return target
+
+    app = create_app(manager=mgr, target_factory=tf,
+                     groups_provider=lambda e: [], job_store=store)
+    client = TestClient(app)
+    jid = client.post("/api/jobs", json={"export_path": "x",
+                                         "group_ids": ["g1"]}).json()["job_id"]
+    mgr.join(jid)
+    r = client.post(f"/api/jobs/{jid}/resume")
+    assert r.status_code == 200
+    mgr.join(r.json()["job_id"])
+    assert len(runs) == 2
+
+
+def test_resume_unknown_returns_400(tmp_path):
+    store = JobStore(dir=str(tmp_path / "jobs"))
+    app = create_app(manager=JobManager(job_store=store),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [], job_store=store)
+    client = TestClient(app)
+    assert client.post("/api/jobs/nope/resume").status_code == 400
+
+
+def test_index_has_redesign_elements():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert 'id="themeToggle"' in html
+    assert 'id="estimate"' in html
+    assert 'id="incremental"' in html
+    assert "--accent" in html
+    assert 'id="groups"' in html and 'id="start"' in html

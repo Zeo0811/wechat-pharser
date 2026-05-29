@@ -9,3 +9,5 @@ decrypted/
 all_keys.json
 
 .DS_Store
+.qun_jobs/
+.qun_state/
