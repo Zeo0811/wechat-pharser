@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional
 import typer
-from qun_alpha import chat_reader, extractor, aggregator, notion_writer
+from qun_alpha import extractor, notion_writer, orchestrator
 from qun_alpha.config import load_config
 
 app = typer.Typer(help="群聊投资机会分析")
@@ -14,34 +14,13 @@ def run_pipeline(export_path: str, group_ids: list[str], start: int, end: int,
                  notion_client: Any,
                  companies_db_id: str, people_db_id: str, links_db_id: str,
                  dry_run: bool) -> dict:
-    messages = chat_reader.load_export(export_path)
-    filtered = chat_reader.filter_messages(
-        messages, group_ids=group_ids, start=start, end=end, drop_noise=True)
-    chunks = chat_reader.chunk_messages(
-        filtered, max_messages=max_messages, prompt_version=prompt_version)
-
-    raw: list = []
-    for ch in chunks:
-        raw.extend(extractor.extract_chunk(ch, runner=runner, cache_dir=cache_dir))
-
-    companies, people, links = aggregator.aggregate(raw)
-    company_payloads = notion_writer.write_companies(
-        companies, client=notion_client, database_id=companies_db_id, dry_run=dry_run)
-    people_payloads = notion_writer.write_people(
-        people, client=notion_client, database_id=people_db_id, dry_run=dry_run)
-    link_payloads = notion_writer.write_links(
-        links, client=notion_client, database_id=links_db_id, dry_run=dry_run)
-
-    return {
-        "chunks": len(chunks),
-        "raw_entities": len(raw),
-        "companies": len(companies),
-        "people": len(people),
-        "links": len(links),
-        "company_payloads": company_payloads,
-        "people_payloads": people_payloads,
-        "link_payloads": link_payloads,
-    }
+    return orchestrator.run_job(
+        export_path=export_path, group_ids=group_ids, start=start, end=end,
+        max_messages=max_messages, prompt_version=prompt_version,
+        runner=runner, cache_dir=cache_dir, notion_client=notion_client,
+        companies_db_id=companies_db_id, people_db_id=people_db_id,
+        links_db_id=links_db_id, dry_run=dry_run,
+    )
 
 
 def _notion_client(cfg):
