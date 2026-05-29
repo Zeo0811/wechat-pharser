@@ -27,11 +27,15 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
             companies_db_id: str, people_db_id: str, links_db_id: str,
             dry_run: bool, emit: Emit = _noop,
             concurrency: int = 3, job_store: Any = None,
-            job_id: Optional[str] = None) -> dict:
+            job_id: Optional[str] = None,
+            incremental: bool = False, cursor_store: Any = None) -> dict:
     emit(ProgressEvent("read", 0, 1, "读取并切块"))
     messages = chat_reader.load_export(export_path)
     filtered = chat_reader.filter_messages(
         messages, group_ids=group_ids, start=start, end=end, drop_noise=True)
+    if incremental and cursor_store is not None:
+        filtered = [m for m in filtered
+                    if m.timestamp > cursor_store.get(m.group_id)]
     chunks = chat_reader.chunk_messages(
         filtered, max_messages=max_messages, prompt_version=prompt_version)
     total = len(chunks)
@@ -81,5 +85,11 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
         "people_payloads": people_payloads,
         "link_payloads": link_payloads,
     }
+    if incremental and cursor_store is not None:
+        latest: dict[str, int] = {}
+        for ch in chunks:
+            latest[ch.group_id] = max(latest.get(ch.group_id, 0), ch.time_end)
+        for gid, ts in latest.items():
+            cursor_store.set(gid, ts)
     emit(ProgressEvent("done", 1, 1, "完成"))
     return result
