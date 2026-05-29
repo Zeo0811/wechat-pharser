@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <ftw.h>
@@ -158,8 +159,10 @@ static int all_solved(void) {
 }
 
 int main(int argc, char *argv[]) {
-    pid_t pid = (argc >= 2) ? atoi(argv[1]) : find_wechat_pid();
-    long window = (argc >= 3) ? atol(argv[2]) : DEFAULT_WINDOW;
+    /* argv: [pid(0=auto)] [window(0=default)] [home_override] */
+    pid_t pid = (argc >= 2 && atoi(argv[1]) > 0) ? atoi(argv[1]) : find_wechat_pid();
+    long window = (argc >= 3 && atol(argv[2]) > 0) ? atol(argv[2]) : DEFAULT_WINDOW;
+    const char *home_arg = (argc >= 4 && argv[3][0]) ? argv[3] : NULL;
     if (pid <= 0) { fprintf(stderr, "WeChat 未运行\n"); return 1; }
 
     fprintf(stderr, "=== find_keys_codec (实验性, 免SIP, 4.1) ===\n");
@@ -171,15 +174,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const char *home = getenv("HOME");
-    const char *su = getenv("SUDO_USER");
-    if (su) { struct passwd *pw = getpwnam(su); if (pw && pw->pw_dir) home = pw->pw_dir; }
-    if (!home) home = "/root";
+    /* 解析 home：优先命令行参数（osascript 管理员下 HOME 会变 /var/root）*/
+    const char *home = home_arg;
+    if (!home) {
+        home = getenv("HOME");
+        const char *su = getenv("SUDO_USER");
+        if (su) { struct passwd *pw = getpwnam(su); if (pw && pw->pw_dir) home = pw->pw_dir; }
+        if (!home) home = "/root";
+    }
 
     char base[512];
     snprintf(base, sizeof(base),
         "%s/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files", home);
+    fprintf(stderr, "HOME=%s\nbase=%s\n", home, base);
     DIR *xdir = opendir(base);
+    if (!xdir) fprintf(stderr, "opendir(base) 失败: errno=%d (%s)\n",
+                       errno, strerror(errno));
     if (xdir) {
         struct dirent *ent;
         while ((ent = readdir(xdir)) != NULL) {

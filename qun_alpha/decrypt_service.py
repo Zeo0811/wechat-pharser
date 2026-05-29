@@ -87,7 +87,7 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
         # 故显式传当前用户 HOME，否则扫描器找不到 ~/Library 下的微信数据。
         {"desc": "提取数据库密钥（管理员，需一两分钟扫内存）",
          "argv": ["osascript", "-e", admin_applescript(
-             f"cd {repo_dir} && HOME={os.path.expanduser('~')} ./find_keys_codec")]},
+             f"cd {repo_dir} && ./find_keys_codec 0 0 {os.path.expanduser('~')}")]},
         {"desc": "校验密钥",
          "argv": ["bash", "-lc",
                   f'grep -qE "[0-9a-f]{{16}}" {repo_dir}/all_keys.json '
