@@ -83,9 +83,11 @@ def decrypt_export_steps(repo_dir: str, raw_out: str, export_path: str) -> list[
          "argv": ["bash", "-lc",
                   f'cc -O2 -o {repo_dir}/find_keys_codec '
                   f'"{_CODEC_SRC}" -framework Foundation']},
+        # osascript 管理员授权以 root 跑、不保留用户 HOME（会变 /var/root），
+        # 故显式传当前用户 HOME，否则扫描器找不到 ~/Library 下的微信数据。
         {"desc": "提取数据库密钥（管理员，需一两分钟扫内存）",
          "argv": ["osascript", "-e", admin_applescript(
-             f"cd {repo_dir} && ./find_keys_codec")]},
+             f"cd {repo_dir} && HOME={os.path.expanduser('~')} ./find_keys_codec")]},
         {"desc": "校验密钥",
          "argv": ["bash", "-lc",
                   f'grep -qE "[0-9a-f]{{16}}" {repo_dir}/all_keys.json '
