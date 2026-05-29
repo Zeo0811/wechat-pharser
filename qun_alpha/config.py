@@ -13,6 +13,9 @@ class Config(BaseModel):
     max_messages_per_chunk: int = 100
     prompt_version: str = "v1"
     cache_dir: str = ".qun_cache"
+    wechat_decrypt_repo: str = "~/wechat-research/ylytdeng-wechat-decrypt"
+    raw_export_dir: str = "exported_chats/raw"
+    export_path: str = "exported_chats/all.json"
 
 
 def load_config(path: str = "config.json") -> Config:
