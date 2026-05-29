@@ -28,6 +28,7 @@
   #groups label{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;
     color:var(--text);cursor:pointer;transition:background .15s}
   #groups label:hover{background:var(--surface0)}
+  #groups .grpitem{display:flex}
   #estimate{font-size:13px;color:var(--subtext);min-height:18px}
   #bar{height:10px;background:var(--surface0);border-radius:5px;overflow:hidden;margin-top:6px}
   #barfill{height:100%;width:0;background:var(--accent);transition:width .25s ease}
@@ -62,7 +63,11 @@
 </div>
 
 <div class="card" id="groupsCard" style="display:none">
-  <label>选择群</label>
+  <div class="row" style="justify-content:space-between">
+    <label>选择群</label>
+    <button id="selectAll" class="ghost" style="padding:4px 10px;font-size:12px">全选/全不选</button>
+  </div>
+  <input type="text" id="groupSearch" placeholder="搜索群名…" style="margin:8px 0">
   <div id="groups"></div>
 </div>
 
@@ -139,10 +144,25 @@ $("loadGroups").onclick=async()=>{
     const res=await fetch("/api/groups?export_path="+encodeURIComponent(ep));
     if(!res.ok){$("result").textContent="加载群失败："+res.status;$("result").className="show";return;}
     const groups=await res.json();
-    $("groups").innerHTML=groups.map(g=>
-      `<label><input type="checkbox" class="grp" value="${g.group_id}"> ${g.group_name} <span class="muted">(${g.count})</span></label>`).join("");
+    $("groups").innerHTML=groups.map(g=>{
+      const badge = g.processed ? ` <span class="muted" style="color:var(--green)">✓已分析·${g.runs||1}次</span>` : "";
+      return `<label class="grpitem"><input type="checkbox" class="grp" value="${g.group_id}"> ${g.group_name} <span class="muted">(${g.count})</span>${badge}</label>`;
+    }).join("");
     $("groupsCard").style.display="block";
   }catch(err){$("result").textContent="请求出错："+err;$("result").className="show";}
+};
+
+$("groupSearch").oninput=()=>{
+  const q=$("groupSearch").value.trim().toLowerCase();
+  document.querySelectorAll("#groups .grpitem").forEach(el=>{
+    el.style.display = el.textContent.toLowerCase().includes(q) ? "flex" : "none";
+  });
+};
+$("selectAll").onclick=()=>{
+  const vis=[...document.querySelectorAll("#groups .grpitem")].filter(el=>el.style.display!=="none");
+  const boxes=vis.map(el=>el.querySelector(".grp"));
+  const allOn=boxes.every(b=>b.checked);
+  boxes.forEach(b=>b.checked=!allOn);
 };
 
 $("estimateBtn").onclick=async()=>{

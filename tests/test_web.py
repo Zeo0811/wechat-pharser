@@ -246,3 +246,11 @@ def test_groups_endpoint_shows_processed(tmp_path):
     g2 = next(g for g in data if g["group_id"] == "g2")
     assert g1["processed"] is True and g1["runs"] == 1
     assert g2["processed"] is False
+
+
+def test_index_has_group_search_and_selectall():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert 'id="groupSearch"' in html
+    assert 'id="selectAll"' in html
+    assert "已分析" in html
