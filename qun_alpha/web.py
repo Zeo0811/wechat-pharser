@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
-from qun_alpha import chat_reader, orchestrator, extractor, estimate as estimate_mod, decrypt_service
+from qun_alpha import chat_reader, orchestrator, extractor, estimate as estimate_mod, decrypt_service, runners
 from qun_alpha.cursor_store import CursorStore
 from qun_alpha.job_store import JobStore
 from qun_alpha.jobs import JobManager
@@ -64,7 +64,7 @@ def _default_target_factory(params: dict):
             end=params.get("end", 2_000_000_000),
             max_messages=cfg.max_messages_per_chunk,
             prompt_version=cfg.prompt_version,
-            runner=extractor.default_claude_runner,
+            runner=runners.get_runner(params.get("model") or cfg.model_backend),
             cache_dir=cfg.cache_dir,
             notion_client=client,
             companies_db_id=cfg.notion_companies_db_id,
