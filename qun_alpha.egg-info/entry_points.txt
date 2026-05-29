@@ -1,0 +1,2 @@
+[console_scripts]
+qun-alpha = qun_alpha.cli:app

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: qun-alpha
+Version: 0.1.0
+Summary: 群聊投资机会分析 — 本地优先投资情报管线
+Requires-Python: >=3.10
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: typer<1,>=0.12
+Requires-Dist: notion-client<3,>=2.2
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"

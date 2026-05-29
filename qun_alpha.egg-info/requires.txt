@@ -1,0 +1,6 @@
+pydantic<3,>=2
+typer<1,>=0.12
+notion-client<3,>=2.2
+
+[dev]
+pytest<9,>=8
