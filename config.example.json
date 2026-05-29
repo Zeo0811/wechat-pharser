@@ -9,5 +9,6 @@
     "cache_dir": ".qun_cache",
     "wechat_decrypt_repo": "~/wechat-research/ylytdeng-wechat-decrypt",
     "raw_export_dir": "exported_chats/raw",
-    "export_path": "exported_chats/all.json"
+    "export_path": "exported_chats/all.json",
+    "model_backend": "claude"
 }
