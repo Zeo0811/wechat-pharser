@@ -54,12 +54,14 @@ def admin_applescript(shell_cmd: str) -> str:
 
 
 def codesign_steps() -> list[dict]:
-    """① 一次性：退出微信 + ad-hoc 重签名（需管理员）。"""
+    """① 一次性：退出微信 + ad-hoc 重签名。
+    /Applications/WeChat.app 通常由当前用户拥有，codesign 不需要 sudo；
+    用管理员反而会因 root 环境/取消而失败，故走 plain。"""
     return [
         {"desc": "退出微信", "argv": ["bash", "-lc", "killall WeChat || true"]},
-        {"desc": "重签名微信（管理员）",
-         "argv": ["osascript", "-e", admin_applescript(
-             "codesign --force --deep --sign - /Applications/WeChat.app")]},
+        {"desc": "重签名微信",
+         "argv": ["bash", "-lc",
+                  "codesign --force --deep --sign - /Applications/WeChat.app"]},
     ]
 
 
@@ -97,5 +99,8 @@ def run_sequence(steps: list[dict], runner=default_runner, emit=lambda e: None) 
               "message": step["desc"]})
         code, output = runner(step["argv"])
         if code != 0:
-            raise RuntimeError(classify_error(output))
+            raw = (output or "").strip()
+            raise RuntimeError(
+                f"「{step['desc']}」失败：{classify_error(raw)}"
+                + (f"（原始：{raw[:300]}）" if raw else ""))
     return {"steps": total}

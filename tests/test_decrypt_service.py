@@ -53,7 +53,7 @@ def test_codesign_steps_sequence():
     steps = codesign_steps()
     assert [s["desc"] for s in steps]
     assert any("killall WeChat" in " ".join(s["argv"]) for s in steps)
-    assert any("administrator privileges" in " ".join(s["argv"]) for s in steps)
+    assert any("codesign --force --deep --sign -" in " ".join(s["argv"]) for s in steps)
 
 
 def test_decrypt_export_steps_paths_and_order():
