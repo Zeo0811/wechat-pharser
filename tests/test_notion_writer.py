@@ -164,3 +164,39 @@ def test_write_links_dry_run():
     payloads = write_links([_link()], client=None,
                            database_id="ldb", dry_run=True)
     assert payloads[0]["parent"]["database_id"] == "ldb"
+
+
+from qun_alpha.notion_writer import ensure_databases
+
+
+class _DbCreator:
+    def __init__(self):
+        self.created = []
+        self._n = 0
+    def create(self, **kw):
+        self._n += 1
+        self.created.append(kw)
+        return {"id": f"db{self._n}"}
+
+
+class CreatorClient:
+    def __init__(self):
+        self.databases = _DbCreator()
+
+
+def test_ensure_databases_creates_three():
+    client = CreatorClient()
+    ids = ensure_databases(client, parent_page_id="page123", dry_run=False)
+    assert set(ids.keys()) == {"companies", "people", "links"}
+    assert len(client.databases.created) == 3
+    assert client.databases.created[0]["parent"]["page_id"] == "page123"
+    comp = next(c for c in client.databases.created
+                if "Company" in c["properties"])
+    assert "Status" in comp["properties"]
+    assert "Score" in comp["properties"]
+
+
+def test_ensure_databases_dry_run():
+    payloads = ensure_databases(None, parent_page_id="page123", dry_run=True)
+    assert len(payloads) == 3
+    assert all(p["parent"]["page_id"] == "page123" for p in payloads)

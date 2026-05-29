@@ -112,3 +112,63 @@ def write_links(links: list[Link], client: Any, database_id: str,
                 dry_run: bool = False) -> list[Any]:
     return _upsert_all(links, client, database_id, "Link",
                        lambda link: link.url, link_to_properties, dry_run)
+
+
+_STATUS_OPTIONS = [{"name": "emerging"}, {"name": "known"},
+                   {"name": "noise"}, {"name": "unclear"}]
+
+_COMPANIES_SCHEMA = {
+    "Company": {"title": {}},
+    "Score": {"number": {}},
+    "Mntns": {"number": {}},
+    "Status": {"select": {"options": _STATUS_OPTIONS}},
+    "Signal": {"rich_text": {}},
+    "Confidence": {"number": {}},
+    "Sector": {"select": {}},
+    "Stage": {"select": {}},
+    "Financials": {"rich_text": {}},
+    "Investors": {"multi_select": {}},
+    "Action": {"select": {}},
+}
+
+_PEOPLE_SCHEMA = {
+    "Person": {"title": {}},
+    "Mntns": {"number": {}},
+    "Role": {"rich_text": {}},
+    "Affiliated": {"multi_select": {}},
+    "Quotes": {"rich_text": {}},
+}
+
+_LINKS_SCHEMA = {
+    "Link": {"title": {}},
+    "Title": {"rich_text": {}},
+    "SharedBy": {"multi_select": {}},
+    "Related": {"multi_select": {}},
+}
+
+_DB_SPECS = [
+    ("companies", "Companies", _COMPANIES_SCHEMA),
+    ("people", "People", _PEOPLE_SCHEMA),
+    ("links", "Links", _LINKS_SCHEMA),
+]
+
+
+def ensure_databases(client: Any, parent_page_id: str, dry_run: bool = False):
+    """在父页面下创建 Companies/People/Links 三库。
+    dry_run 返回 create payload 列表；实跑返回 {key: database_id}。"""
+    if dry_run:
+        return [
+            {"parent": {"page_id": parent_page_id},
+             "title": [{"text": {"content": db_title}}],
+             "properties": schema}
+            for _, db_title, schema in _DB_SPECS
+        ]
+    ids: dict[str, str] = {}
+    for key, db_title, schema in _DB_SPECS:
+        db = client.databases.create(
+            parent={"page_id": parent_page_id},
+            title=[{"text": {"content": db_title}}],
+            properties=schema,
+        )
+        ids[key] = db["id"]
+    return ids
