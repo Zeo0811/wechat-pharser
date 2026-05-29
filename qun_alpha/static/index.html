@@ -69,8 +69,9 @@ $("start").onclick = async () => {
   const src = new EventSource("/api/jobs/" + job_id + "/stream");
   src.onmessage = (e) => {
     const d = JSON.parse(e.data);
-    if (d.stage && d.total) {
-      $("barfill").style.width = Math.round(d.current / d.total * 100) + "%";
+    if (d.stage !== undefined && d.total !== undefined) {
+      const pct = d.total ? Math.round(d.current / d.total * 100) : 100;
+      $("barfill").style.width = pct + "%";
       $("log").textContent += `[${d.stage}] ${d.message}\n`;
     }
     if (d.status) {
