@@ -284,3 +284,14 @@ def test_config_endpoint_no_export(tmp_path):
                      groups_provider=lambda e: [],
                      config_loader=lambda: Cfg())
     assert TestClient(app).get("/api/config").json()["has_export"] is False
+
+
+def test_index_streamlined_flow():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert "/api/config" in html
+    assert 'id="export_path"' not in html
+    assert 'id="loadGroups"' not in html
+    assert "解密导出后" in html
+    assert html.index("decryptBtn") < html.index('id="groups"')
+    assert 'id="groupSearch"' in html and 'id="start"' in html

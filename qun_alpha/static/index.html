@@ -17,6 +17,7 @@
     line-height:1.6;transition:background .3s,color .3s;}
   h1{font-size:20px;display:flex;align-items:center;justify-content:space-between}
   .card{background:var(--base);border-radius:12px;padding:18px 20px;margin:14px 0;box-shadow:var(--shadow)}
+  .card.highlight{outline:2px solid var(--accent);outline-offset:1px}
   label{font-size:13px;color:var(--subtext)}
   input[type=text]{width:100%;padding:9px 11px;margin-top:6px;border:1px solid var(--surface0);
     border-radius:8px;background:var(--mantle);color:var(--text);font-family:inherit}
@@ -44,16 +45,7 @@
 <body>
 <h1>群聊投资机会分析 <button id="themeToggle" title="切换主题">◐</button></h1>
 
-<div class="card">
-  <label>导出 JSON 路径</label>
-  <input type="text" id="export_path" placeholder="exported_chats/all.json" value="exported_chats/sample.json">
-  <div class="row" style="margin-top:10px">
-    <button id="loadGroups">加载群列表</button>
-    <span class="muted">先加载，再勾选要分析的群</span>
-  </div>
-</div>
-
-<div class="card">
+<div class="card" id="decryptCard">
   <label>解密微信（首次设置签名后，日常只点②）</label>
   <div class="row" style="margin-top:10px">
     <button id="codesignBtn" class="ghost">① 重签名（首次）</button>
@@ -62,13 +54,13 @@
   <div class="muted" style="margin-top:8px">①会退出微信并弹管理员密码框；之后请重开并登录微信，再点②。②需微信开着且已登录。</div>
 </div>
 
-<div class="card" id="groupsCard" style="display:none">
+<div class="card">
   <div class="row" style="justify-content:space-between">
     <label>选择群</label>
     <button id="selectAll" class="ghost" style="padding:4px 10px;font-size:12px">全选/全不选</button>
   </div>
   <input type="text" id="groupSearch" placeholder="搜索群名…" style="margin:8px 0">
-  <div id="groups"></div>
+  <div id="groups"><div class="muted" id="groupsPlaceholder">解密导出后，群列表会自动出现在这里。首次请先点上方「② 解密并导出」。</div></div>
 </div>
 
 <div class="card">
@@ -91,6 +83,7 @@
 
 <script>
 const $=(id)=>document.getElementById(id);
+let CFG={ep:"exported_chats/all.json", has_export:false};
 
 const savedTheme=localStorage.getItem("qa-theme")||"light";
 document.documentElement.setAttribute("data-theme",savedTheme);
@@ -101,6 +94,25 @@ $("themeToggle").onclick=()=>{
 };
 
 const selectedGroups=()=>[...document.querySelectorAll(".grp:checked")].map(e=>e.value);
+
+async function loadGroups(){
+  try{
+    const res=await fetch("/api/groups?export_path="+encodeURIComponent(CFG.ep));
+    if(!res.ok){$("groups").innerHTML=`<div class="muted">加载群失败：${res.status}</div>`;return;}
+    const groups=await res.json();
+    if(!groups.length){$("groups").innerHTML=`<div class="muted">导出里没有群。先点「② 解密并导出」。</div>`;return;}
+    $("groups").innerHTML=groups.map(g=>{
+      const badge = g.processed ? ` <span class="muted" style="color:var(--green)">✓已分析·${g.runs||1}次</span>` : "";
+      return `<label class="grpitem"><input type="checkbox" class="grp" value="${g.group_id}"> ${g.group_name} <span class="muted">(${g.count})</span>${badge}</label>`;
+    }).join("");
+  }catch(err){$("groups").innerHTML=`<div class="muted">请求出错：${err}</div>`;}
+}
+
+fetch("/api/config").then(r=>r.json()).then(c=>{
+  CFG=c;
+  if(c.has_export){ loadGroups(); }
+  else{ $("decryptCard").classList.add("highlight"); }
+}).catch(()=>{});
 
 function streamJob(job_id, onDone){
   $("log").textContent="";$("result").className="";$("result").textContent="";
@@ -135,21 +147,12 @@ $("codesignBtn").onclick=async()=>{
 
 $("decryptBtn").onclick=async()=>{
   const b=await postJob("/api/decrypt-export");
-  if(b)streamJob(b.job_id,()=>{if(b.export_path)$("export_path").value=b.export_path;$("result").textContent="解密导出完成，正在加载群…";$("loadGroups").click();});
-};
-
-$("loadGroups").onclick=async()=>{
-  const ep=$("export_path").value.trim();
-  try{
-    const res=await fetch("/api/groups?export_path="+encodeURIComponent(ep));
-    if(!res.ok){$("result").textContent="加载群失败："+res.status;$("result").className="show";return;}
-    const groups=await res.json();
-    $("groups").innerHTML=groups.map(g=>{
-      const badge = g.processed ? ` <span class="muted" style="color:var(--green)">✓已分析·${g.runs||1}次</span>` : "";
-      return `<label class="grpitem"><input type="checkbox" class="grp" value="${g.group_id}"> ${g.group_name} <span class="muted">(${g.count})</span>${badge}</label>`;
-    }).join("");
-    $("groupsCard").style.display="block";
-  }catch(err){$("result").textContent="请求出错："+err;$("result").className="show";}
+  if(b)streamJob(b.job_id,()=>{
+    if(b.export_path)CFG.ep=b.export_path;
+    $("decryptCard").classList.remove("highlight");
+    $("result").textContent="解密导出完成，正在加载群…";
+    loadGroups();
+  });
 };
 
 $("groupSearch").oninput=()=>{
@@ -170,7 +173,7 @@ $("estimateBtn").onclick=async()=>{
   if(!gids.length){$("estimate").textContent="请先勾选群再预估。";return;}
   $("estimate").textContent="预估中…";
   try{
-    const q=new URLSearchParams({export_path:$("export_path").value.trim(),groups:gids.join(",")});
+    const q=new URLSearchParams({export_path:CFG.ep,groups:gids.join(",")});
     const res=await fetch("/api/estimate?"+q);
     const d=await res.json();
     if(!res.ok){$("estimate").textContent="预估失败："+(d.error||res.status);return;}
@@ -182,11 +185,11 @@ $("start").onclick=async()=>{
   const group_ids=selectedGroups();
   $("log").textContent="";$("result").className="";$("result").textContent="";
   $("barfill").style.width="0";
-  if(!group_ids.length){$("result").textContent="请先加载并勾选至少一个群。";$("result").className="show";return;}
+  if(!group_ids.length){$("result").textContent="请先选至少一个群（没群就先点②解密并导出）。";$("result").className="show";return;}
   let job_id;
   try{
     const res=await fetch("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({export_path:$("export_path").value.trim(),group_ids,
+      body:JSON.stringify({export_path:CFG.ep,group_ids,
         dry_run:$("dry_run").checked,incremental:$("incremental").checked})});
     const body=await res.json();
     if(!res.ok){$("result").textContent="起任务失败："+(body.error||res.status);$("result").className="show";return;}
