@@ -19,6 +19,7 @@ def _fake_runner(prompt):
 
 
 def test_run_pipeline_end_to_end(tmp_path):
+    import os
     result = run_pipeline(
         export_path="tests/fixtures/export_sample.json",
         group_ids=["g1"],
@@ -27,15 +28,11 @@ def test_run_pipeline_end_to_end(tmp_path):
         prompt_version="v1",
         runner=_fake_runner,
         cache_dir=str(tmp_path / "cache"),
-        notion_client=None,
-        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
-        dry_run=True,
+        report_dir=str(tmp_path / "reports"),
     )
     assert result["chunks"] == 2
     assert result["companies"] >= 1
     assert result["people"] >= 1
-    assert result["company_payloads"][0]["parent"]["database_id"] == "cdb"
-    assert result["people_payloads"][0]["parent"]["database_id"] == "pdb"
-    assert result["company_payloads"][0]["properties"]["Mntns"]["number"] == 2
-    assert result["people_payloads"][0]["properties"]["Person"]["title"][0]["text"]["content"] == "老王"
-    assert result["link_payloads"] == []
+    assert os.path.exists(result["report_md"])
+    assert os.path.exists(result["report_docx"])
+    assert "company_payloads" not in result
