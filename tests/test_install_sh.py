@@ -15,3 +15,10 @@ def test_install_sh_has_key_steps():
                "find_keys_codec", "claude", "codex", "qun-alpha doctor",
                "QUN_ALPHA_HOME", ".local/bin"]:
         assert kw in t, f"缺少关键步骤: {kw}"
+
+
+def test_install_sh_guides_start():
+    t = SH.read_text(encoding="utf-8")
+    assert "现在启动" in t
+    assert "/dev/tty" in t
+    assert "qun-alpha serve" in t
