@@ -90,11 +90,11 @@ if [ -n "$BACKEND" ]; then
 fi
 
 # 9. 链接 qun-alpha 命令到 PATH
-mkdir -p "$BIN_DIR"
-ln -sf "$QUN_ALPHA_HOME/.venv/bin/qun-alpha" "$BIN_DIR/qun-alpha"
-case ":$PATH:" in
-  *":$BIN_DIR:"*) ok "qun-alpha 已在 PATH（$BIN_DIR）";;
-  *) warn "把 $BIN_DIR 加入 PATH：echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.zshrc && source ~/.zshrc";;
+mkdir -p "${BIN_DIR}"
+ln -sf "${QUN_ALPHA_HOME}/.venv/bin/qun-alpha" "${BIN_DIR}/qun-alpha"
+case ":${PATH}:" in
+  *":${BIN_DIR}:"*) ok "qun-alpha 已在 PATH: ${BIN_DIR}" ;;
+  *) warn "把 ${BIN_DIR} 加入 PATH: echo 'export PATH=\"${BIN_DIR}:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
 esac
 
 # 10. 体检 + 下一步
