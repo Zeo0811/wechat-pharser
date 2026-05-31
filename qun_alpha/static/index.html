@@ -109,7 +109,7 @@ async function loadGroups(){
 }
 
 fetch("/api/config").then(r=>r.json()).then(c=>{
-  CFG=c;
+  CFG={ep:c.export_path, has_export:c.has_export};
   if(c.has_export){ loadGroups(); }
   else{ $("decryptCard").classList.add("highlight"); }
 }).catch(()=>{});
