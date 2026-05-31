@@ -97,11 +97,14 @@ case ":${PATH}:" in
   *) warn "把 ${BIN_DIR} 加入 PATH: echo 'export PATH=\"${BIN_DIR}:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
 esac
 
-# 10. 体检 + 下一步
+# 10. 体检 + 引导启动
 c "依赖体检"
 "$QUN_ALPHA_HOME/.venv/bin/qun-alpha" doctor || true
 echo
-c "完成！下一步："
-echo "  qun-alpha doctor          # 运行体检"
-echo "  qun-alpha decrypt-guide   # 看解密说明"
-echo "  qun-alpha serve           # 起本地操作台 http://127.0.0.1:7800"
+c "装好了！打开操作台后，点「② 解密并导出」即可开始（首次先点①重签名）。"
+printf "现在启动操作台吗？[Y/n]: "
+read -r ans </dev/tty || ans="n"
+case "${ans:-Y}" in
+  [nN]*) echo "稍后手动启动：qun-alpha serve（或 qun-alpha doctor 运行体检）" ;;
+  *) exec "$QUN_ALPHA_HOME/.venv/bin/qun-alpha" serve ;;
+esac

@@ -254,3 +254,44 @@ def test_index_has_group_search_and_selectall():
     assert 'id="groupSearch"' in html
     assert 'id="selectAll"' in html
     assert "已分析" in html
+
+
+def test_config_endpoint(tmp_path):
+    f = tmp_path / "all.json"
+    f.write_text("[]", encoding="utf-8")
+
+    class Cfg:
+        export_path = str(f)
+        model_backend = "codex"
+
+    app = create_app(manager=JobManager(),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [],
+                     config_loader=lambda: Cfg())
+    d = TestClient(app).get("/api/config").json()
+    assert d["export_path"] == str(f)
+    assert d["has_export"] is True
+    assert d["model_backend"] == "codex"
+
+
+def test_config_endpoint_no_export(tmp_path):
+    class Cfg:
+        export_path = str(tmp_path / "nope.json")
+        model_backend = "claude"
+
+    app = create_app(manager=JobManager(),
+                     target_factory=lambda p: (lambda e: {}),
+                     groups_provider=lambda e: [],
+                     config_loader=lambda: Cfg())
+    assert TestClient(app).get("/api/config").json()["has_export"] is False
+
+
+def test_index_streamlined_flow():
+    client = _client(JobManager())
+    html = client.get("/").text
+    assert "/api/config" in html
+    assert 'id="export_path"' not in html
+    assert 'id="loadGroups"' not in html
+    assert "解密导出后" in html
+    assert html.index("decryptBtn") < html.index('id="groups"')
+    assert 'id="groupSearch"' in html and 'id="start"' in html

@@ -200,4 +200,17 @@ def create_app(*, manager: Optional[JobManager] = None,
             lambda emit: decrypt_service.run_sequence(steps, runner=decrypt_runner, emit=emit))
         return {"job_id": job_id, "export_path": cfg.export_path}
 
+    @app.get("/api/config")
+    def config_ep():
+        import os
+        try:
+            cfg = config_loader()
+            export_path = cfg.export_path
+            backend = cfg.model_backend
+        except Exception:
+            export_path, backend = "exported_chats/all.json", "claude"
+        return {"export_path": export_path,
+                "has_export": os.path.exists(export_path),
+                "model_backend": backend}
+
     return app
