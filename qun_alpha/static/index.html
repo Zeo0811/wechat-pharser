@@ -66,7 +66,7 @@
 <div class="card">
   <div class="row">
     <label><input type="checkbox" id="incremental"> 增量（只分析上次之后的新消息）</label>
-    <label><input type="checkbox" id="dry_run" checked> 预演（不写 Notion）</label>
+    <span class="muted">分析完成后报告自动存到 ~/Downloads（Word + Markdown）</span>
   </div>
   <div class="row" style="margin-top:12px">
     <button id="estimateBtn" class="ghost">预估</button>
@@ -190,7 +190,7 @@ $("start").onclick=async()=>{
   try{
     const res=await fetch("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({export_path:CFG.ep,group_ids,
-        dry_run:$("dry_run").checked,incremental:$("incremental").checked})});
+        incremental:$("incremental").checked})});
     const body=await res.json();
     if(!res.ok){$("result").textContent="起任务失败："+(body.error||res.status);$("result").className="show";return;}
     job_id=body.job_id;
@@ -208,7 +208,10 @@ $("start").onclick=async()=>{
     if(d.status){
       src.close();$("barfill").classList.remove("pulse");
       if(d.status==="error"){$("result").textContent="出错："+d.error;}
-      else{const r=d.result||{};$("result").textContent=`完成：${r.companies||0} 公司 / ${r.people||0} 人 / ${r.links||0} 链接`;}
+      else{const r=d.result||{};
+        let t=`完成：${r.companies||0} 公司 / ${r.people||0} 人 / ${r.links||0} 链接`;
+        if(r.report_md){t+=`\n已保存到 ~/Downloads：\n${r.report_md}\n${r.report_docx}`;}
+        $("result").style.whiteSpace="pre-wrap";$("result").textContent=t;}
       $("result").className="show";
     }
   };
