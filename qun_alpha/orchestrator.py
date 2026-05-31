@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from qun_alpha import chat_reader, extractor, aggregator, notion_writer
+from qun_alpha import chat_reader, extractor, aggregator, report
 
 
 @dataclass
@@ -23,9 +23,7 @@ def _noop(_ev: "ProgressEvent") -> None:
 def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
             max_messages: int, prompt_version: str,
             runner: Callable[[str], str], cache_dir: Optional[str],
-            notion_client: Any,
-            companies_db_id: str, people_db_id: str, links_db_id: str,
-            dry_run: bool, emit: Emit = _noop,
+            report_dir: Optional[str] = None, emit: Emit = _noop,
             concurrency: int = 3, job_store: Any = None,
             job_id: Optional[str] = None,
             incremental: bool = False, cursor_store: Any = None) -> dict:
@@ -69,14 +67,9 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
     emit(ProgressEvent("aggregate", 1, 1,
                        f"{len(companies)}公司/{len(people)}人/{len(links)}链接"))
 
-    emit(ProgressEvent("write", 0, 1, "写 Notion"))
-    company_payloads = notion_writer.write_companies(
-        companies, client=notion_client, database_id=companies_db_id, dry_run=dry_run)
-    people_payloads = notion_writer.write_people(
-        people, client=notion_client, database_id=people_db_id, dry_run=dry_run)
-    link_payloads = notion_writer.write_links(
-        links, client=notion_client, database_id=links_db_id, dry_run=dry_run)
-    emit(ProgressEvent("write", 1, 1, "写入完成"))
+    emit(ProgressEvent("write", 0, 1, "生成报告"))
+    paths = report.write_reports(companies, people, links, out_dir=report_dir)
+    emit(ProgressEvent("write", 1, 1, f"已保存：{paths['md']}"))
 
     result = {
         "chunks": total,
@@ -84,9 +77,8 @@ def run_job(*, export_path: str, group_ids: list[str], start: int, end: int,
         "companies": len(companies),
         "people": len(people),
         "links": len(links),
-        "company_payloads": company_payloads,
-        "people_payloads": people_payloads,
-        "link_payloads": link_payloads,
+        "report_md": paths["md"],
+        "report_docx": paths["docx"],
     }
     if incremental and cursor_store is not None:
         latest: dict[str, int] = {}

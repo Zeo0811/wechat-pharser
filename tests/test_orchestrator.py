@@ -22,21 +22,24 @@ def _run(tmp_path):
         group_ids=["g1"], start=0, end=2_000_000_000,
         max_messages=1, prompt_version="v1",
         runner=_fake_runner, cache_dir=str(tmp_path / "cache"),
-        notion_client=None,
-        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
-        dry_run=True, emit=events.append,
+        report_dir=str(tmp_path / "reports"), emit=events.append,
     )
     return events, result
 
 
 def test_run_job_returns_same_shape_as_pipeline(tmp_path):
+    import os
     events, result = _run(tmp_path)
     assert result["chunks"] == 2
     assert result["companies"] >= 1
-    assert result["company_payloads"][0]["parent"]["database_id"] == "cdb"
+    assert os.path.exists(result["report_md"])
+    assert os.path.exists(result["report_docx"])
     assert set(result.keys()) >= {
         "chunks", "raw_entities", "companies", "people", "links",
-        "company_payloads", "people_payloads", "link_payloads"}
+        "report_md", "report_docx"}
+    assert "company_payloads" not in result
+    stages = {e.stage for e in events}
+    assert "write" in stages and "done" in stages
 
 
 def test_run_job_emits_progress_stages(tmp_path):
@@ -64,9 +67,7 @@ def test_run_job_records_progress_to_store(tmp_path):
         group_ids=["g1"], start=0, end=2_000_000_000,
         max_messages=1, prompt_version="v1",
         runner=_fake_runner, cache_dir=str(tmp_path / "cache"),
-        notion_client=None,
-        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
-        dry_run=True, emit=events.append,
+        report_dir=str(tmp_path / "reports"), emit=events.append,
         concurrency=3, job_store=store, job_id="jx",
     )
     assert result["chunks"] == 2
@@ -88,9 +89,7 @@ def test_incremental_skips_old_and_advances_cursor(tmp_path):
         group_ids=["g1"], start=0, end=2_000_000_000,
         max_messages=1, prompt_version="v1",
         runner=_fake_runner, cache_dir=str(tmp_path / "cache"),
-        notion_client=None,
-        companies_db_id="cdb", people_db_id="pdb", links_db_id="ldb",
-        dry_run=True, emit=events.append,
+        report_dir=str(tmp_path / "reports"), emit=events.append,
         incremental=True, cursor_store=cur,
     )
     assert result["chunks"] == 1                 # 只剩 m4 一块

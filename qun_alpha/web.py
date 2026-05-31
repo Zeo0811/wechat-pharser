@@ -46,19 +46,17 @@ def iter_sse(manager: JobManager, job_id: str, poll: float = 0.05):
 
 
 def _default_target_factory(params: dict):
+    import os
     from qun_alpha.config import load_config
     cfg = load_config(params.get("config_path", "config.json"))
-    dry_run = params.get("dry_run", True)
     incremental = params.get("incremental", False)
     concurrency = int(params.get("concurrency", 3))
-    client = None
-    if not dry_run:
-        from notion_client import Client
-        client = Client(auth=cfg.notion_token)
     cursor = CursorStore()
     backend = params.get("model") or cfg.model_backend
-    # 抽取（即使 dry_run）都要调模型 CLI，故先确认它在；缺失 → start_job 返回 400
+    # 抽取要调模型 CLI，先确认它在；缺失 → start_job 返回 400
     runners.ensure_available(backend)
+    report_dir = params.get("report_dir") or os.path.join(
+        os.path.expanduser("~"), "Downloads")
 
     def target(emit):
         result = orchestrator.run_job(
@@ -70,11 +68,7 @@ def _default_target_factory(params: dict):
             prompt_version=cfg.prompt_version,
             runner=runners.get_runner(backend),
             cache_dir=cfg.cache_dir,
-            notion_client=client,
-            companies_db_id=cfg.notion_companies_db_id,
-            people_db_id=cfg.notion_people_db_id,
-            links_db_id=cfg.notion_links_db_id,
-            dry_run=dry_run, emit=emit,
+            report_dir=report_dir, emit=emit,
             concurrency=concurrency,
             incremental=incremental, cursor_store=cursor,
         )
